@@ -26,6 +26,11 @@ function nomDe(m) {
   }
   return m.nom_libre || '-';
 }
+function afficherErreur(el, message) {
+  el.textContent = message;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 150);
+}
 function caisseNomDe(m) {
   if (!m.caisse_id) return 'Caisse Générale';
   const c = caisses.find(x => x.id === m.caisse_id);
@@ -51,11 +56,11 @@ async function connexion() {
   err.textContent = '';
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-    if (error) { err.textContent = error.message; return; }
+    if (error) { afficherErreur(err, error.message); return; }
     await demarrerApresConnexion(data.session);
   } catch (e) {
     console.error(e);
-    err.textContent = "Erreur inattendue: " + e.message;
+    afficherErreur(err, "Erreur inattendue: " + e.message);
   }
 }
 
@@ -65,14 +70,19 @@ async function inscription() {
   const pass = document.getElementById('authPassInscr').value;
   const err = document.getElementById('erreurInscription');
   err.textContent = '';
-  if (!nom || !email || pass.length < 6) { err.textContent = "Remplis tous les champs (mot de passe 6 caractères min.)"; return; }
-  const { data, error } = await supabase.auth.signUp({ email, password: pass, options: { data: { nom_complet: nom } } });
-  if (error) { err.textContent = error.message; return; }
-  if (data.session) {
-    await demarrerApresConnexion(data.session);
-  } else {
-    alert("Compte créé. Vérifie tes emails pour confirmer ton adresse, puis connecte-toi.");
-    basculerOnglet('connexion');
+  if (!nom || !email || pass.length < 6) { afficherErreur(err, "Remplis tous les champs (mot de passe 6 caractères min.)"); return; }
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password: pass, options: { data: { nom_complet: nom } } });
+    if (error) { afficherErreur(err, error.message); return; }
+    if (data.session) {
+      await demarrerApresConnexion(data.session);
+    } else {
+      alert("Compte créé. Vérifie tes emails pour confirmer ton adresse, puis connecte-toi.");
+      basculerOnglet('connexion');
+    }
+  } catch (e) {
+    console.error(e);
+    afficherErreur(err, "Erreur inattendue: " + e.message);
   }
 }
 
