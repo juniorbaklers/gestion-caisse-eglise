@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion Trésorerie Eglise PRO V7.2.4B</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{ --bleu:#1e3a8a; --bleu-clair:#2563eb; --vert:#16a34a; --rouge:#dc2626; --orange:#f97316; --violet:#7c3aed; --gris:#f4f6f9; }
+  *{box-sizing:border-box; font-family:'Poppins', Arial}
+  body{margin:0; background:var(--gris)}
+  header{background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); color:white; padding:20px; display:flex; align-items:center; gap:15px}
+  header img{height:60px; background:white; padding:5px; border-radius:8px}
+  nav{display:flex; gap:10px; padding:15px 20px; background:white; overflow-x:auto}
+  nav button{padding:12px 18px; border:none; background:var(--bleu-clair); color:white; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap}
+.btn-vert{background:var(--vert)!important}.btn-rouge{background:var(--rouge)!important}.btn-orange{background:var(--orange)!important}.btn-violet{background:var(--violet)!important}.btn-pdf{background:#7c3aed!important}.btn-graph{background:#2563eb!important}
+.container{padding:20px; max-width:1400px; margin:auto}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px}
+.card-pro{background:white; padding:20px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.07); border-left:5px solid var(--bleu-clair); cursor:pointer; transition:0.2s}
+.card-pro:hover{transform:translateY(-3px); box-shadow:0 5px 15px rgba(0,0,0,0.1)}
+.card-pro.montant{font-size:26px; font-weight:700; color:var(--bleu)}
+.card-general{background:linear-gradient(135deg, var(--bleu), #0f2a6b); color:white}
+.card-ecodim{background:linear-gradient(135deg, var(--orange), #ea580c); color:white}
+.section{background:white; border-radius:12px; padding:20px; margin-top:20px; box-shadow:0 3px 10px rgba(0,0,0,0.07)}
+.hidden{display:none}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  table th{background:var(--gris); padding:12px; text-align:left}
+  table td{padding:12px; border-bottom:1px solid #eee}
+.badge{padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600}
+.badge-entree{background:#dcfce7; color:var(--vert)}
+.badge-depense{background:#fee2e2; color:var(--rouge)}
+.btn-action{padding:6px 10px; border:none; border-radius:5px; cursor:pointer; font-size:12px; font-weight:600; color:white; margin-right:5px}
+.modal{display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:999}
+.modal-content{background:white; padding:30px; width:95%; max-width:550px; border-radius:12px; max-height:90vh; overflow-y:auto}
+.modal-content input,.modal-content select{width:100%; padding:12px; margin:6px 0 18px 0; border:1px solid #ddd; border-radius:8px}
+.btn-save{width:100%; padding:14px; background:var(--vert); color:white; border:none; border-radius:8px; font-size:16px; font-weight:700; cursor:pointer}
+.filtre-box{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.filtre-box input{width:auto; padding:8px}
+  @media print { nav,.btn-action,.modal { display: none!important; } body{background:white} }
+</style>
+</head>
+<body>
+
+<header>
+  <img id="logoHeader" src="" style="display:none">
+  <div>
+    <h1 id="nomEglise">NOM DE L'EGLISE</h1>
+    <p id="adresseEglise">Ville - Quartier</p>
+  </div>
+</header>
+
+<nav>
+  <button onclick="showPage('accueil')">🏠 ACCUEIL</button>
+  <button onclick="showPage('dashboard')">📊 DASHBOARD</button>
+  <button onclick="ouvrir('ajout')" class="btn-vert">+ AJOUTER</button>
+  <button onclick="ouvrir('depense')" class="btn-rouge">- DEPENSE</button>
+  <button onclick="imprimerEtat('general')">🖨️ ETAT GENERAL</button>
+  <button onclick="imprimerGraphique()" class="btn-graph">📊 GRAPHIQUE</button>
+  <button onclick="exportPDFGeneral()" class="btn-pdf">📄 PDF GENERAL</button>
+  <button onclick="exportExcel()">📥 EXCEL</button>
+  <button onclick="sauvegarderFichier()">💾 SAUVEGARDE</button>
+  <button onclick="ouvrirParam()" class="btn-violet">⚙️ PARAM</button>
+</nav>
+
+<div class="container">
+  <div id="page-accueil">
+    <div class="filtre-box" style="margin-bottom:15px">
+      <h2 style="color:var(--bleu); margin:0">Etat des Caisses</h2>
+      <select id="filtrePeriode" onchange="toggleDates()">
+        <option value="tout">Toutes périodes</option>
+        <option value="jour">Aujourd'hui</option>
+        <option value="semaine">Semaine</option>
+        <option value="mois">Mois</option>
+        <option value="annee">Année en cours</option>
+        <option value="annee_spec">Année spécifique</option>
+        <option value="perso">Période personnalisée</option>
+      </select>
+      <input type="number" id="inpAnnee" placeholder="Ex: 2024" style="display:none; width:120px">
+      <input type="date" id="dateDebut" style="display:none">
+      <input type="date" id="dateFin" style="display:none">
+      <button onclick="afficher()" style="padding:8px 15px; background:var(--bleu-clair); color:white; border:none; border-radius:6px">APPLIQUER</button>
+    </div>
+    <small>Clique sur une caisse pour imprimer son état</small>
+    <div class="grid" id="grilleCaisses" style="margin-top:15px"></div>
+    <div class="section"><h3>Derniers Mouvements</h3><table><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th><th>Utilisateur</th><th>Action</th></tr></thead><tbody id="tbodyMouvements"></tbody></table></div>
+  </div>
+
+  <div id="page-dashboard" class="hidden">
+    <div class="filtre-box" style="margin-bottom:15px">
+      <label><input type="radio" name="typeGraph" value="bar" checked onchange="afficherDashboard()"> Barres</label>
+      <label><input type="radio" name="typeGraph" value="line" onchange="afficherDashboard()"> Courbe</label>
+    </div>
+    <div class="section"><h2>TABLEAU DE BORD</h2><canvas id="graphiqueMois"></canvas></div>
+    <div class="grid" id="resumeCards"></div>
+  </div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3 id="titreModal"></h3>
+    <input type="hidden" id="idModif"><input type="hidden" id="typeSaisie">
+    <label>Utilisateur qui saisit</label><input id="userSaisie" placeholder="Ex: Frère Jean Trésorier">
+    <label>Caisse</label><select id="selCaisse"></select>
+    <label>Date</label><input type="date" id="dateSaisie">
+    <label>Nom Donateur/Bénéficiaire</label><input id="nomSaisie">
+    <label>Montant FCFA</label><input type="number" id="montantSaisie">
+    <label>Motif</label><input id="motifSaisie">
+    <label><input type="checkbox" id="genereRecu"> Générer un Reçu PDF</label>
+    <button onclick="enregistrer()" class="btn-save">ENREGISTRER</button>
+    <button onclick="fermer()" style="width:100%; margin-top:10px; padding:12px; background:#ccc; border:none; border-radius:8px">ANNULER</button>
+  </div>
+</div>
+
+<div id="modalParam" class="modal">
+  <div class="modal-content">
+    <h3>⚙️ PARAMETRES DE L'EGLISE</h3>
+    <label>Nom de l'Eglise</label><input id="inpNom" placeholder="Ex: Eglise Centrale">
+    <label>Ville</label><input id="inpVille" placeholder="Ex: Abidjan">
+    <label>Quartier</label><input id="inpQuartier" placeholder="Ex: Yopougon">
+    <label>Logo de l'Eglise</label><input type="file" id="inpLogo" accept="image/*">
+    <img id="apercuLogo" style="max-height:80px; margin-top:10px; display:none">
+    <hr><h4>SAUVEGARDE CLOUD</h4>
+    <button onclick="sauvegarderFichier()" class="btn-save" style="background:var(--bleu-clair)">1. TELECHARGER SAUVEGARDE</button>
+    <input type="file" id="restaurerFile" accept=".json" onchange="restaurerFichier(event)">
+    <button onclick="sauverParam()" class="btn-save">ENREGISTRER PARAMETRES</button>
+    <button onclick="fermerParam()" style="width:100%; margin-top:10px; padding:12px; background:#ccc; border:none; border-radius:8px">FERMER</button>
+  </div>
+</div>
+
+<script>
+let data = {recettes:[], depenses:[], params:{nom:"EGLISE", ville:"", quartier:"", logo:""}};
+const CAISSES = ["Offrandes Ordinaires","Offrandes Spéciales et Dons","Dimes","Offrandes du Soir","ECODIM"];
+const CAISSES_GENERALE = ["Offrandes Ordinaires","Offrandes Spéciales et Dons","Dimes","Offrandes du Soir"];
+let monGraphique = null; const { jsPDF } = window.jspdf;
+
+window.onload = function(){ let saved=localStorage.getItem('tresorerieProV724B'); if(saved){data=JSON.parse(saved);} chargerHeader(); afficher(); }
+
+function showPage(p){ document.querySelectorAll('.container > div').forEach(d=>d.classList.add('hidden')); document.getElementById('page-'+p).classList.remove('hidden'); if(p=='dashboard') setTimeout(afficherDashboard,100); }
+function sauver(){ localStorage.setItem('tresorerieProV724B', JSON.stringify(data)); }
+
+function toggleDates(){
+  let p = document.getElementById('filtrePeriode').value;
+  document.getElementById('inpAnnee').style.display = p=='annee_spec'? 'block' : 'none';
+  document.getElementById('dateDebut').style.display = p=='perso'? 'block' : 'none';
+  document.getElementById('dateFin').style.display = p=='perso'? 'block' : 'none';
+}
+
+function filtrerParPeriode(liste){
+  let p=document.getElementById('filtrePeriode').value;
+  if(p=='tout')return liste;
+  let now=new Date();
+  return liste.filter(i=>{
+    let d=new Date(i.date);
+    if(p=='jour')return d.toDateString()==now.toDateString();
+    if(p=='semaine')return (now-d)/(1000*60*60*24)<=7;
+    if(p=='mois')return d.getMonth()==now.getMonth()&&d.getFullYear()==now.getFullYear();
+    if(p=='annee')return d.getFullYear()==now.getFullYear();
+    if(p=='annee_spec'){
+      let annee = parseInt(document.getElementById('inpAnnee').value);
+      return d.getFullYear()==annee;
+    }
+    if(p=='perso'){
+      let debut = new Date(document.getElementById('dateDebut').value);
+      let fin = new Date(document.getElementById('dateFin').value);
+      return d>=debut && d<=fin;
+    }
+    return true;
+  });
+}
+
+function getSolde(nom){
+  let r=filtrerParPeriode(data.recettes);
+  let d=filtrerParPeriode(data.depenses);
+  if(nom=="Caisse Générale"){
+    let e=CAISSES_GENERALE.reduce((t,c)=>t+r.filter(x=>x.caisse==c).reduce((a,b)=>a+b.montant,0),0);
+    let depGen = d.filter(x=>x.caisse=="Caisse Générale").reduce((a,b)=>a+b.montant,0);
+    return e-depGen;
+  }
+  return r.filter(x=>x.caisse==nom).reduce((a,b)=>a+b.montant,0) - d.filter(x=>x.caisse==nom).reduce((a,b)=>a+b.montant,0);
+}
+
+function afficher(){ let html=""; CAISSES.forEach(c=>{ html+=`<div class="card-pro" onclick="imprimerEtat('${c}')"><h3>${c}</h3><div class="montant">${getSolde(c).toLocaleString()} FCFA</div><small style="color:var(--bleu-clair)">Clique pour imprimer</small></div>`; }); html+=`<div class="card-pro card-general" onclick="imprimerEtat('general')"><h3>CAISSE GENERALE</h3><div class="montant">${getSolde("Caisse Générale").toLocaleString()} FCFA</div><small>Clique pour imprimer Etat</small></div>`; document.getElementById('grilleCaisses').innerHTML=html; let tous=[...data.recettes.map(r=>({...r,type:"Entrée"})),...data.depenses.map(d=>({...d,type:"Dépense"}))].sort((a,b)=>b.id-a.id).slice(0,100); let tbody=""; if(tous.length==0){tbody='<tr><td colspan="8" style="text-align:center">Aucun mouvement</td></tr>';} tous.forEach(m=>{ tbody+=`<tr><td>${m.date}</td><td>${m.caisse}</td><td><span class="badge ${m.type=='Entrée'?'badge-entree':'badge-depense'}">${m.type}</span></td><td>${m.nom}</td><td>${m.montant.toLocaleString()}</td><td>${m.motif}</td><td>${m.user||'-'}</td><td><button class="btn-action btn-orange" onclick="modifier(${m.id},'${m.type}')">MODIF</button><button class="btn-action btn-rouge" onclick="supprimer(${m.id},'${m.type}')">SUPPR</button>${m.type=='Entrée'?`<button class="btn-action btn-violet" onclick="genererPDF(${m.id})">RECU</button>`:""}</td></tr>`; }); document.getElementById('tbodyMouvements').innerHTML=tbody; }
+
+function afficherDashboard(){
+  if(monGraphique)monGraphique.destroy();
+  let labels=[],e=[],d=[];
+  let annee = new Date().getFullYear();
+  let typeGraph = document.querySelector('input[name="typeGraph"]:checked').value;
+
+  for(let i=0;i<12;i++){
+    labels.push(new Date(annee,i,1).toLocaleString('fr-FR',{month:'short'}));
+    let ent=data.recettes.filter(r=>CAISSES_GENERALE.includes(r.caisse) && new Date(r.date).getFullYear()==annee && new Date(r.date).getMonth()==i).reduce((a,b)=>a+b.montant,0);
+    let dep=data.depenses.filter(r=>r.caisse=="Caisse Générale" && new Date(r.date).getFullYear()==annee && new Date(r.date).getMonth()==i).reduce((a,b)=>a+b.montant,0);
+    e.push(ent);d.push(dep);
+  }
+
+  monGraphique=new Chart(document.getElementById('graphiqueMois'),{
+    type:typeGraph,
+    data:{labels,datasets:[{label:'ENTREES',data:e,backgroundColor:'#16a34a',borderColor:'#16a34a',fill:false,tension:0.3},{label:'DEPENSES',data:d,backgroundColor:'#dc2626',borderColor:'#dc2626',fill:false,tension:0.3}]},
+    options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{ticks:{maxRotation:0}}}}
+  });
+
+  let tR=data.recettes.filter(r=>CAISSES_GENERALE.includes(r.caisse)).reduce((a,b)=>a+b.montant,0);
+  let tD=data.depenses.filter(r=>r.caisse=="Caisse Générale").reduce((a,b)=>a+b.montant,0);
+  let tEcodimR=data.recettes.filter(r=>r.caisse=="ECODIM").reduce((a,b)=>a+b.montant,0);
+  let tEcodimD=data.depenses.filter(r=>r.caisse=="ECODIM").reduce((a,b)=>a+b.montant,0);
+  let tEcodim = tEcodimR - tEcodimD;
+
+  document.getElementById('resumeCards').innerHTML=`
+    <div class="card-pro" style="background:var(--vert);color:white"><h3 style="color:white">TOTAL ENTREES</h3><div class="montant" style="color:white">${tR.toLocaleString()}</div><small>CAISSE GENERALE</small></div>
+    <div class="card-pro" style="background:var(--rouge);color:white"><h3 style="color:white">TOTAL DEPENSES</h3><div class="montant" style="color:white">${tD.toLocaleString()}</div><small>CAISSE GENERALE</small></div>
+    <div class="card-pro"><h3>SOLDE GLOBAL</h3><div class="montant">${(tR-tD).toLocaleString()}</div><small>CAISSE GENERALE</small></div>
+    <div class="card-pro card-ecodim"><h3>SOLDE ECODIM</h3><div class="montant" style="color:white">${tEcodim.toLocaleString()}</div><small>CAISSE SEPAREE</small></div>
+  `;
+}
+
+function ouvrir(type,id=null){ document.getElementById('idModif').value=id?id:""; document.getElementById('typeSaisie').value=type; document.getElementById('titreModal').innerText=id?'MODIFIER':type=='ajout'?'AJOUTER RECETTE':'SAISIR DEPENSE'; let sel=document.getElementById('selCaisse'); sel.innerHTML=""; if(type=='ajout'){CAISSES.forEach(c=>sel.innerHTML+=`<option>${c}</option>`);}else{[...CAISSES, "Caisse Générale"].forEach(c=>sel.innerHTML+=`<option>${c}</option>`);} if(id){let item=[...data.recettes,...data.depenses].find(x=>x.id==id); document.getElementById('userSaisie').value=item.user||"";document.getElementById('dateSaisie').value=item.date;document.getElementById('selCaisse').value=item.caisse;document.getElementById('nomSaisie').value=item.nom;document.getElementById('montantSaisie').value=item.montant;document.getElementById('motifSaisie').value=item.motif;}else{document.getElementById('userSaisie').value="";document.getElementById('dateSaisie').value=new Date().toISOString().split('T')[0];document.getElementById('nomSaisie').value="";document.getElementById('montantSaisie').value="";document.getElementById('motifSaisie').value="";} document.getElementById('modal').style.display='flex'; }
+function modifier(id,type){ ouvrir(type=='Entrée'?'ajout':'depense',id); }
+function fermer(){ document.getElementById('modal').style.display='none'; }
+
+function enregistrer(){
+  let id=document.getElementById('idModif').value;
+  let obj={id:id?parseInt(id):Date.now(),user:document.getElementById('userSaisie').value,date:document.getElementById('dateSaisie').value,caisse:document.getElementById('selCaisse').value,nom:document.getElementById('nomSaisie').value,montant:parseFloat(document.getElementById('montantSaisie').value)||0,motif:document.getElementById('motifSaisie').value};
+  if(obj.montant<=0){alert("Montant invalide");return;}
+  if(id){
+    if(document.getElementById('typeSaisie').value=='ajout'){data.recettes=data.recettes.map(x=>x.id==obj.id?obj:x);}
+    else{data.depenses=data.depenses.map(x=>x.id==obj.id?obj:x);}
+  }else{
+    if(document.getElementById('typeSaisie').value=='ajout'){data.recettes.push(obj);}
+    else{data.depenses.push(obj);}
+  }
+  if(document.getElementById('genereRecu').checked && document.getElementById('typeSaisie').value=='ajout'){ setTimeout(()=>genererPDF(obj.id),500); }
+  sauver();fermer();afficher();
+}
+
+function supprimer(id,type){ if(confirm("Supprimer?")){ if(type=="Entrée"){data.recettes=data.recettes.filter(x=>x.id!=id);}else{data.depenses=data.depenses.filter(x=>x.id!=id);} sauver();afficher(); } }
+
+function genererGraphiqueImage(){
+  return new Promise(resolve=>{
+    let canvas = document.createElement('canvas');
+    canvas.width = 1000; canvas.height = 450;
+    let ctx = canvas.getContext('2d');
+    let labels=[],e=[],d=[];
+    let annee = new Date().getFullYear();
+    let rFiltre = filtrerParPeriode(data.recettes);
+    let dFiltre = filtrerParPeriode(data.depenses);
+
+    for(let i=0;i<12;i++){
+      labels.push(new Date(annee,i,1).toLocaleString('fr-FR',{month:'short'}));
+      let ent=rFiltre.filter(r=>CAISSES_GENERALE.includes(r.caisse) && new Date(r.date).getFullYear()==annee && new Date(r.date).getMonth()==i).reduce((a,b)=>a+b.montant,0);
+      let dep=dFiltre.filter(r=>r.caisse=="Caisse Générale" && new Date(r.date).getFullYear()==annee && new Date(r.date).getMonth()==i).reduce((a,b)=>a+b.montant,0);
+      e.push(ent);d.push(dep);
+    }
+
+    new Chart(ctx,{
+      type:'bar',
+      data:{labels,datasets:[{label:'ENTREES',data:e,backgroundColor:'#16a34a'},{label:'DEPENSES',data:d,backgroundColor:'#dc2626'}]},
+      options:{animation:false,responsive:false,plugins:{legend:{display:true}},scales:{x:{ticks:{maxRotation:0}}}}
+    });
+    setTimeout(()=>resolve(canvas.toDataURL()), 700);
+  });
+}
+
+async function imprimerEtat(type){
+  let logo=data.params.logo?`<img src="${data.params.logo}" style="height:80px">`:'';
+  let isGeneral = (type=='general' || type=='Caisse Générale');
+  let titre = isGeneral? "ETAT GENERAL DES CAISSES" : "RELEVE DE LA CAISSE : "+type;
+  let periode = document.getElementById('filtrePeriode').options[document.getElementById('filtrePeriode').selectedIndex].text;
+  let rFiltre = filtrerParPeriode(data.recettes);
+  let dFiltre = filtrerParPeriode(data.depenses);
+  let totalEntrees = 0;
+  let totalDepenses = 0;
+  if(isGeneral){
+    totalEntrees = CAISSES_GENERALE.reduce((t,c)=>t+rFiltre.filter(x=>x.caisse==c).reduce((a,b)=>a+b.montant,0),0);
+    totalDepenses = dFiltre.filter(x=>x.caisse=="Caisse Générale").reduce((a,b)=>a+b.montant,0);
+  } else {
+    totalEntrees = rFiltre.filter(x=>x.caisse==type).reduce((a,b)=>a+b.montant,0);
+    totalDepenses = dFiltre.filter(x=>x.caisse==type).reduce((a,b)=>a+b.montant,0);
+  }
+  let solde = totalEntrees - totalDepenses;
+  let mouvements = [...rFiltre.map(r=>({...r,type:"Entrée"})),...dFiltre.map(d=>({...d,type:"Dépense"}))];
+  if(!isGeneral){ mouvements = mouvements.filter(m=>m.caisse==type); }
+  let lignes="";
+  mouvements.forEach(m=>{ lignes+=`<tr><td>${m.date}</td><td>${m.caisse}</td><td>${m.type}</td><td>${m.nom}</td><td>${m.montant.toLocaleString()}</td><td>${m.motif}</td></tr>`; });
+  let contenu=`<html><head><style>body{font-family:Poppins; padding:20px}.entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #1e3a8a} h1{margin:0} table{width:100%; border-collapse:collapse; margin-top:20px} th,td{border:1px solid #ccc; padding:8px; font-size:12px} th{background:#eee}.total{font-size:28px; font-weight:700; text-align:center; margin:20px 0; color:#1e3a8a; padding:20px; border:3px solid #1e3a8a; border-radius:10px; background:#eff6ff}.resume{display:flex; justify-content:space-around; margin:15px 0; font-size:16px}</style></head><body><div class="entete">${logo}<div><h1>${data.params.nom}</h1><p>${data.params.ville} - ${data.params.quartier}</p></div></div><h2 style="text-align:center">${titre}</h2><p><b>Période:</b> ${periode}</p><div class="resume"><div><b>TOTAL ENTREES:</b> ${totalEntrees.toLocaleString()} FCFA</div><div><b>TOTAL DEPENSES:</b> ${totalDepenses.toLocaleString()} FCFA</div></div><p class="total">SOLDE GLOBAL: ${solde.toLocaleString()} FCFA</p><table><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th></tr></thead><tbody>${lignes}</tbody></table></body></html>`;
+  let w=window.open('');
+  w.document.write(contenu);
+  w.document.close();
+  setTimeout(()=>w.print(), 800);
+}
+
+async function imprimerGraphique(){
+  let logo=data.params.logo?`<img src="${data.params.logo}" style="height:80px">`:'';
+  let periode = document.getElementById('filtrePeriode').options[document.getElementById('filtrePeriode').selectedIndex].text;
+  let solde = getSolde("Caisse Générale");
+  let imgGraph = await genererGraphiqueImage();
+  let contenu=`<html><head><style>body{font-family:Poppins; padding:20px; text-align:center}.entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #1e3a8a; text-align:left} h1{margin:0}.total{font-size:28px; font-weight:700; margin:20px 0; color:#1e3a8a; padding:20px; border:3px solid #1e3a8a; border-radius:10px; background:#eff6ff; display:inline-block}</style></head><body><div class="entete">${logo}<div><h1>${data.params.nom}</h1><p>${data.params.ville} - ${data.params.quartier}</p></div></div><h2>GRAPHIQUE ANNUEL - CAISSE GENERALE</h2><p><b>Période:</b> ${periode}</p><p class="total">SOLDE ACTUEL: ${solde.toLocaleString()} FCFA</p><div><img src="${imgGraph}" style="width:100%; max-width:1000px"></div></body></html>`;
+  let w=window.open(''); w.document.write(contenu); w.document.close(); setTimeout(()=>w.print(), 800);
+}
+
+async function exportPDFGeneral(){
+  alert("Génération du PDF en cours...");
+  let element = document.getElementById('page-accueil');
+  let canvas = await html2canvas(element, {scale:2});
+  let imgData = canvas.toDataURL('image/png');
+  let pdf = new jsPDF('l','mm','a4');
+  let pdfWidth = pdf.internal.pageSize.getWidth();
+  let pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+  pdf.save("Etat_General_"+new Date().toISOString().split('T')[0]+".pdf");
+}
+
+function genererPDF(id){ let r=data.recettes.find(x=>x.id==id); if(!r)return; const doc=new jsPDF(); if(data.params.logo){doc.addImage(data.params.logo,'PNG',85,10,40,20);} doc.setFontSize(18); doc.text(data.params.nom,105,35,{align:"center"}); doc.setFontSize(11); doc.text(data.params.ville+" - "+data.params.quartier,105,42,{align:"center"}); doc.line(20,50,190,50); doc.setFontSize(16); doc.text("RECU DE DON / OFFRANDE",105,60,{align:"center"}); doc.setFontSize(12); doc.text("N°: "+r.id,20,75); doc.text("Date: "+r.date,150,75); doc.text("Reçu de: "+r.nom,20,90); doc.text("Montant: "+r.montant.toLocaleString()+" FCFA",20,105); doc.text("Motif: "+r.motif,20,120); doc.text("Caisse: "+r.caisse,20,135); doc.text("Reçu par: "+(r.user||"Trésorier"),20,150); doc.text("Signature et Cachet",150,170); doc.save("Recu_"+r.nom+"_"+r.id+".pdf"); }
+
+function ouvrirParam(){
+  document.getElementById('inpNom').value=data.params.nom;
+  document.getElementById('inpVille').value=data.params.ville;
+  document.getElementById('inpQuartier').value=data.params.quartier;
+  if(data.params.logo){document.getElementById('apercuLogo').src=data.params.logo;document.getElementById('apercuLogo').style.display='block';}
+  document.getElementById('modalParam').style.display='flex';
+}
+function fermerParam(){ document.getElementById('modalParam').style.display='none'; }
+function chargerHeader(){ document.getElementById('nomEglise').innerText=data.params.nom;document.getElementById('adresseEglise').innerText=data.params.ville+" - "+data.params.quartier; if(data.params.logo){document.getElementById('logoHeader').src=data.params.logo;document.getElementById('logoHeader').style.display='block';} }
+
+function sauverParam(){
+  data.params.nom=document.getElementById('inpNom').value;
+  data.params.ville=document.getElementById('inpVille').value;
+  data.params.quartier=document.getElementById('inpQuartier').value;
+  let file=document.getElementById('inpLogo').files[0];
+  if(file){
+    let reader=new FileReader();
+    reader.onload=e=>{
+      data.params.logo=e.target.result;
+      sauver();chargerHeader();fermerParam();alert("Paramètres enregistrés avec succès!");
+    };
+    reader.readAsDataURL(file);
+  }else{
+    sauver();chargerHeader();fermerParam();alert("Paramètres enregistrés avec succès!");
+  }
+}
+
+function exportExcel(){ let ws_data=[["Date","Caisse","Type","Nom","Montant","Motif","Utilisateur"]]; [...data.recettes.map(r=>({...r,type:"Entrée"})),...data.depenses.map(d=>({...d,type:"Dépense"}))].forEach(i=>{ws_data.push([i.date,i.caisse,i.type,i.nom,i.montant,i.motif,i.user||""]);}); const ws=XLSX.utils.aoa_to_sheet(ws_data); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Mouvements"); XLSX.writeFile(wb,"Tresorerie_"+new Date().toISOString().split('T')[0]+".xlsx"); }
+
+function sauvegarderFichier(){ let blob=new Blob([JSON.stringify(data)],{type:"application/json"}); let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="sauvegarde_tresorerie_"+new Date().toISOString().split('T')[0]+".json"; a.click(); }
+function restaurerFichier(event){ let file=event.target.files[0]; let reader=new FileReader(); reader.onload=e=>{data=JSON.parse(e.target.result); sauver(); chargerHeader(); afficher(); alert("Restauration réussie!");}; reader.readAsText(file); }
+</script>
+</body>
+</html>
