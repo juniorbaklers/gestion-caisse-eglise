@@ -49,9 +49,14 @@ async function connexion() {
   const pass = document.getElementById('authPass').value;
   const err = document.getElementById('erreurConnexion');
   err.textContent = '';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-  if (error) { err.textContent = "Email ou mot de passe incorrect"; return; }
-  await demarrerApresConnexion(data.session);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+    if (error) { err.textContent = error.message; return; }
+    await demarrerApresConnexion(data.session);
+  } catch (e) {
+    console.error(e);
+    err.textContent = "Erreur inattendue: " + e.message;
+  }
 }
 
 async function inscription() {
@@ -85,22 +90,29 @@ let demarre = false;
 async function demarrerApresConnexion(sess) {
   if (demarre) return;
   demarre = true;
-  session = sess;
-  const { data: prof, error } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
-  if (error || !prof) {
-    alert("Impossible de charger le profil utilisateur. Réessaie ou contacte le trésorier principal.");
-    await supabase.auth.signOut();
-    return;
+  try {
+    session = sess;
+    const { data: prof, error } = await supabase.from('profils').select('*').eq('id', session.user.id).single();
+    if (error || !prof) {
+      alert("Impossible de charger le profil utilisateur (" + (error ? error.message : 'profil introuvable') + "). Réessaie ou contacte le trésorier principal.");
+      await supabase.auth.signOut();
+      demarre = false;
+      return;
+    }
+    profil = prof;
+    document.getElementById('ecranAuth').classList.add('hidden');
+    document.getElementById('appli').classList.remove('hidden');
+    document.getElementById('utilisateurNom').textContent = profil.nom_complet;
+    document.getElementById('utilisateurRole').textContent = libelleRole(profil.role);
+    await chargerToutesLesDonnees();
+    attacherEcouteurs();
+    showPage('accueil');
+    activerRealtime();
+  } catch (e) {
+    console.error(e);
+    alert("Erreur au démarrage de l'application: " + e.message);
+    demarre = false;
   }
-  profil = prof;
-  document.getElementById('ecranAuth').classList.add('hidden');
-  document.getElementById('appli').classList.remove('hidden');
-  document.getElementById('utilisateurNom').textContent = profil.nom_complet;
-  document.getElementById('utilisateurRole').textContent = libelleRole(profil.role);
-  await chargerToutesLesDonnees();
-  attacherEcouteurs();
-  showPage('accueil');
-  activerRealtime();
 }
 
 function activerRealtime() {

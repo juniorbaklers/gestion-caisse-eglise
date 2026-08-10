@@ -13,7 +13,7 @@
   :root{ --bleu:#1e3a8a; --bleu-clair:#2563eb; --vert:#16a34a; --rouge:#dc2626; --orange:#f97316; --violet:#7c3aed; --gris:#f4f6f9; }
   *{box-sizing:border-box; font-family:'Poppins', Arial}
   body{margin:0; background:var(--gris); font-size:15px; color:#1e293b}
-  label{display:block; font-weight:600; font-size:12.5px; color:#64748b; letter-spacing:.3px; text-transform:uppercase; margin:14px 0 6px}
+  label{display:block; font-weight:600; font-size:12.5px; color:#64748b; letter-spacing:.3px; text-transform:uppercase; margin:10px 0 5px}
   label:has(input[type=checkbox]),label:has(input[type=radio]){display:flex; align-items:center; gap:8px; text-transform:none; font-size:14px; color:#334155; font-weight:500; width:auto}
   label:has(input[type=checkbox]) input,label:has(input[type=radio]) input{width:auto}
   input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],select{
@@ -54,14 +54,14 @@
 .filtre-box input{width:auto; padding:8px}
   @media print { nav,.btn-action,.modal,header .compte { display: none!important; } body{background:white} }
   .erreur{color:var(--rouge); font-size:12.5px; margin:6px 0 4px 0; min-height:16px}
-  .onglets{display:flex; gap:4px; margin-bottom:22px; background:#f1f5f9; padding:4px; border-radius:12px}
+  .onglets{display:flex; gap:4px; margin-bottom:14px; background:#f1f5f9; padding:4px; border-radius:12px}
   .onglets button{flex:1; padding:10px; border:none; border-radius:9px; background:transparent; cursor:pointer; font-weight:600; color:#64748b; transition:.15s; font-size:13.5px}
   .onglets button.actif{background:white; color:var(--bleu); box-shadow:0 2px 8px rgba(0,0,0,0.08)}
   #ecranAuth{position:fixed; inset:0; background:radial-gradient(ellipse at top left, #24408f 0%, #14204d 45%, #0a1330 100%); display:flex; align-items:center; justify-content:center; z-index:2000; padding:24px}
-  .boite-auth{background:white; padding:40px 36px 34px; border-radius:22px; width:100%; max-width:400px; box-shadow:0 30px 70px -15px rgba(0,0,0,0.45)}
-  .boite-auth .icone-auth{width:56px; height:56px; margin:0 auto 16px; border-radius:16px; background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 8px 20px rgba(37,99,235,0.35)}
-  .boite-auth h2{text-align:center; margin:0 0 4px; font-size:21px; color:#0f172a}
-  .boite-auth .sous-titre{text-align:center; color:#94a3b8; font-size:13px; margin-bottom:26px}
+  .boite-auth{background:white; padding:32px 32px 28px; border-radius:22px; width:100%; max-width:400px; max-height:92vh; overflow-y:auto; box-shadow:0 30px 70px -15px rgba(0,0,0,0.45)}
+  .boite-auth .icone-auth{width:46px; height:46px; margin:0 auto 12px; border-radius:14px; background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:0 8px 20px rgba(37,99,235,0.35)}
+  .boite-auth h2{text-align:center; margin:0 0 4px; font-size:20px; color:#0f172a}
+  .boite-auth .sous-titre{text-align:center; color:#94a3b8; font-size:12.5px; margin-bottom:18px}
   .btn-google{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; font-weight:600; font-size:14px; color:#334155; cursor:pointer; transition:.15s; font-family:'Poppins',Arial}
   .btn-google:hover{background:#f8fafc; border-color:#cbd5e1}
   .separateur{display:flex; align-items:center; gap:10px; margin:18px 0 4px; color:#94a3b8; font-size:12px}
