@@ -122,6 +122,41 @@ async function validerNouveauMotDePasse() {
   if (s) await demarrerApresConnexion(s);
 }
 
+function lancerModeDemo() {
+  profil = { nom_complet: 'Mode Démonstration', role: 'tresorier_principal' };
+  caisses = [
+    { id: 'demo-1', nom: 'Offrandes Ordinaires', incluse_caisse_generale: true, actif: true, ordre: 1 },
+    { id: 'demo-2', nom: 'Offrandes Spéciales et Dons', incluse_caisse_generale: true, actif: true, ordre: 2 },
+    { id: 'demo-3', nom: 'Dimes', incluse_caisse_generale: true, actif: true, ordre: 3 },
+    { id: 'demo-4', nom: 'Offrandes du Soir', incluse_caisse_generale: true, actif: true, ordre: 4 },
+    { id: 'demo-5', nom: 'ECODIM', incluse_caisse_generale: false, actif: true, ordre: 5 },
+  ];
+  membres = [
+    { id: 'demo-m1', nom_complet: 'Jean Kouassi', telephone: '0700000001', actif: true },
+    { id: 'demo-m2', nom_complet: 'Marie Yao', telephone: '0700000002', actif: true },
+    { id: 'demo-m3', nom_complet: 'Paul N\'Guessan', telephone: '0700000003', actif: true },
+  ];
+  const auj = new Date().toISOString().split('T')[0];
+  mouvements = [
+    { id: 'demo-mv1', type: 'entree', caisse_id: 'demo-1', membre_id: 'demo-m1', nom_libre: null, date: auj, montant: 25000, motif: 'Offrande du dimanche', numero_recu: 'REC-DEMO-0001', user_id: 'demo-user' },
+    { id: 'demo-mv2', type: 'entree', caisse_id: 'demo-3', membre_id: 'demo-m2', nom_libre: null, date: auj, montant: 15000, motif: 'Dîme mensuelle', numero_recu: null, user_id: 'demo-user' },
+    { id: 'demo-mv3', type: 'entree', caisse_id: 'demo-5', membre_id: null, nom_libre: 'Collecte ECODIM', date: auj, montant: 8000, motif: 'Collecte du dimanche', numero_recu: null, user_id: 'demo-user' },
+    { id: 'demo-mv4', type: 'entree', caisse_id: 'demo-2', membre_id: 'demo-m3', nom_libre: null, date: auj, montant: 50000, motif: 'Don spécial construction', numero_recu: 'REC-DEMO-0002', user_id: 'demo-user' },
+    { id: 'demo-mv5', type: 'depense', caisse_id: null, membre_id: null, nom_libre: 'CIE', date: auj, montant: 12000, motif: 'Facture électricité', numero_recu: null, user_id: 'demo-user' },
+  ];
+  profilsMap = { 'demo-user': 'Trésorier Démo' };
+  clotures = [];
+  params = { nom: 'Église Démonstration', ville: 'Abidjan', quartier: 'Cocody', logo_url: '' };
+
+  document.getElementById('ecranAuth').classList.add('hidden');
+  document.getElementById('appli').classList.remove('hidden');
+  document.getElementById('utilisateurNom').textContent = profil.nom_complet;
+  document.getElementById('utilisateurRole').textContent = 'Démo (aucune donnée réelle)';
+  chargerHeader();
+  attacherEcouteurs();
+  showPage('accueil');
+}
+
 async function connexionGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   if (error) alert("Erreur Google: " + error.message);
@@ -217,6 +252,7 @@ function chargerHeader() {
 function showPage(p) {
   document.querySelectorAll('.container > div').forEach(d => d.classList.add('hidden'));
   document.getElementById('page-' + p).classList.remove('hidden');
+  if (p === 'accueil') afficher();
   if (p === 'dashboard') setTimeout(afficherDashboard, 100);
   if (p === 'membres') afficherMembres();
   if (p === 'cloture') afficherClotures();
@@ -818,7 +854,10 @@ async function sauverParam() {
 
 // ---------- Ecouteurs delegués (évite les onclick avec données dynamiques) ----------
 
+let ecouteursAttaches = false;
 function attacherEcouteurs() {
+  if (ecouteursAttaches) return;
+  ecouteursAttaches = true;
   document.getElementById('grilleCaisses').addEventListener('click', e => {
     const card = e.target.closest('[data-caisse]');
     if (card) imprimerEtat(card.dataset.caisse);
@@ -858,7 +897,7 @@ supabase.auth.onAuthStateChange((event, sess) => {
 
 Object.assign(window, {
   showPage, ouvrir, imprimerEtat, imprimerGraphique, exportPDFGeneral, exportExcel, ouvrirParam,
-  basculerOnglet, connexion, inscription, deconnexion, connexionGoogle, motDePasseOublie, validerNouveauMotDePasse,
+  basculerOnglet, connexion, inscription, deconnexion, connexionGoogle, motDePasseOublie, validerNouveauMotDePasse, lancerModeDemo,
   toggleDates, afficher, enregistrer, fermer,
   toggleNomLibre, ouvrirMembre, enregistrerMembre, fermerMembre, afficherMembres, ajouterCaisse,
   sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre,
