@@ -106,6 +106,7 @@
       <label>Mot de passe</label><input type="password" id="authPass">
       <div class="erreur" id="erreurConnexion"></div>
       <button class="btn-save" onclick="connexion()">SE CONNECTER</button>
+      <button type="button" onclick="motDePasseOublie()" style="width:100%; background:none; border:none; color:var(--bleu-clair); font-size:12.5px; margin-top:10px; cursor:pointer; padding:4px">Mot de passe oublié ?</button>
     </div>
     <div id="formInscription" class="hidden">
       <label>Nom complet</label><input id="authNom" placeholder="Ex: Frère Jean Trésorier">
@@ -193,6 +194,16 @@
 
 </div>
 
+<div id="modalNouveauMdp" class="modal">
+  <div class="modal-content" style="max-width:400px">
+    <h3>Nouveau mot de passe</h3>
+    <label>Nouveau mot de passe (min. 6 caractères)</label>
+    <input type="password" id="nouveauMdp">
+    <div class="erreur" id="erreurNouveauMdp"></div>
+    <button onclick="validerNouveauMotDePasse()" class="btn-save">VALIDER</button>
+  </div>
+</div>
+
 <div id="modal" class="modal">
   <div class="modal-content">
     <h3 id="titreModal"></h3>
@@ -250,6 +261,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>

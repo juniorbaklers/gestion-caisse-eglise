@@ -86,6 +86,32 @@ async function inscription() {
   }
 }
 
+async function motDePasseOublie() {
+  const email = document.getElementById('authEmail').value.trim() || prompt("Entre ton email pour recevoir le lien de réinitialisation :");
+  if (!email) return;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  if (error) { alert("Erreur: " + error.message); return; }
+  alert("Email envoyé si ce compte existe. Ouvre le lien reçu, tu reviendras ici pour définir ton nouveau mot de passe.");
+}
+
+function ouvrirNouveauMotDePasse() {
+  document.getElementById('erreurNouveauMdp').textContent = '';
+  document.getElementById('nouveauMdp').value = '';
+  document.getElementById('modalNouveauMdp').style.display = 'flex';
+}
+
+async function validerNouveauMotDePasse() {
+  const pass = document.getElementById('nouveauMdp').value;
+  const err = document.getElementById('erreurNouveauMdp');
+  err.textContent = '';
+  if (pass.length < 6) { err.textContent = "6 caractères minimum"; return; }
+  const { error } = await supabase.auth.updateUser({ password: pass });
+  if (error) { err.textContent = error.message; return; }
+  document.getElementById('modalNouveauMdp').style.display = 'none';
+  const { data: { session: s } } = await supabase.auth.getSession();
+  if (s) await demarrerApresConnexion(s);
+}
+
 async function connexionGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   if (error) alert("Erreur Google: " + error.message);
@@ -728,13 +754,15 @@ function attacherEcouteurs() {
 
 // ---------- Démarrage ----------
 
-supabase.auth.onAuthStateChange((_event, sess) => {
+supabase.auth.onAuthStateChange((event, sess) => {
+  if (event === 'PASSWORD_RECOVERY') { ouvrirNouveauMotDePasse(); return; }
   if (sess) demarrerApresConnexion(sess);
 });
 
 Object.assign(window, {
   showPage, ouvrir, imprimerEtat, imprimerGraphique, exportPDFGeneral, exportExcel, ouvrirParam,
-  basculerOnglet, connexion, inscription, deconnexion, connexionGoogle, toggleDates, afficher, enregistrer, fermer,
+  basculerOnglet, connexion, inscription, deconnexion, connexionGoogle, motDePasseOublie, validerNouveauMotDePasse,
+  toggleDates, afficher, enregistrer, fermer,
   toggleNomLibre, ouvrirMembre, enregistrerMembre, fermerMembre, afficherMembres, ajouterCaisse,
   sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre
 });
