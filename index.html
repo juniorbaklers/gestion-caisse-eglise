@@ -139,6 +139,7 @@
   <button onclick="showPage('accueil')">🏠 ACCUEIL</button>
   <button onclick="showPage('dashboard')">📊 DASHBOARD</button>
   <button onclick="showPage('membres')">👥 MEMBRES</button>
+  <button onclick="showPage('cloture')">🔒 CLÔTURE</button>
   <button onclick="ouvrir('ajout')" class="btn-vert">+ AJOUTER</button>
   <button onclick="ouvrir('depense')" class="btn-rouge">- DEPENSE</button>
   <button onclick="imprimerEtat('general')">🖨️ ETAT GENERAL</button>
@@ -189,6 +190,12 @@
     </div>
     <input id="rechercheMembre" placeholder="Rechercher un membre..." style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px" oninput="afficherMembres()">
     <div class="section"><table><thead><tr><th>Nom</th><th>Téléphone</th><th>Total versé</th><th>Statut</th><th>Action</th></tr></thead><tbody id="tbodyMembres"></tbody></table></div>
+  </div>
+
+  <div id="page-cloture" class="hidden">
+    <h2 style="color:var(--bleu); margin:0 0 15px">Clôtures d'exercice</h2>
+    <div class="section" id="blocClotureAction"></div>
+    <div class="section"><h3>Historique des clôtures</h3><table><thead><tr><th>Année</th><th>Caisse</th><th>Solde clôturé</th><th>Date</th><th>Clôturé par</th></tr></thead><tbody id="tbodyClotures"></tbody></table></div>
   </div>
 </div>
 
@@ -261,6 +268,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>

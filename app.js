@@ -10,6 +10,7 @@ let caisses = [];
 let membres = [];
 let mouvements = [];
 let profilsMap = {};
+let clotures = [];
 let params = { nom: 'EGLISE', ville: '', quartier: '', logo_url: '' };
 let monGraphique = null;
 
@@ -35,6 +36,15 @@ function caisseNomDe(m) {
   if (!m.caisse_id) return 'Caisse Générale';
   const c = caisses.find(x => x.id === m.caisse_id);
   return c ? c.nom : '-';
+}
+function caisseNomParId(id) {
+  if (!id) return 'Caisse Générale';
+  const c = caisses.find(x => x.id === id);
+  return c ? c.nom : '-';
+}
+function estVerrouille(m) {
+  const annee = new Date(m.date).getFullYear();
+  return clotures.some(c => c.annee >= annee && c.caisse_id === m.caisse_id);
 }
 function libelleRole(r) {
   return { tresorier_principal: 'Trésorier Principal', tresorier_adjoint: 'Trésorier Adjoint', lecture_seule: 'Lecture seule' }[r] || r;
@@ -185,8 +195,12 @@ async function chargerProfils() {
   profilsMap = {};
   (data || []).forEach(p => { profilsMap[p.id] = p.nom_complet; });
 }
+async function chargerClotures() {
+  const { data } = await supabase.from('clotures').select('*').order('annee', { ascending: false });
+  clotures = data || [];
+}
 async function chargerToutesLesDonnees() {
-  await Promise.all([chargerParams(), chargerCaisses(), chargerMembres(), chargerMouvements(), chargerProfils()]);
+  await Promise.all([chargerParams(), chargerCaisses(), chargerMembres(), chargerMouvements(), chargerProfils(), chargerClotures()]);
 }
 
 function chargerHeader() {
@@ -205,6 +219,7 @@ function showPage(p) {
   document.getElementById('page-' + p).classList.remove('hidden');
   if (p === 'dashboard') setTimeout(afficherDashboard, 100);
   if (p === 'membres') afficherMembres();
+  if (p === 'cloture') afficherClotures();
 }
 
 function toggleDates() {
@@ -286,6 +301,7 @@ function afficher() {
   let tbody = "";
   if (mv.length === 0) { tbody = '<tr><td colspan="9" style="text-align:center">Aucun mouvement</td></tr>'; }
   mv.forEach(m => {
+    const verrouille = estVerrouille(m);
     tbody += `<tr>
       <td>${escapeHtml(m.date)}</td>
       <td>${escapeHtml(caisseNomDe(m))}</td>
@@ -296,8 +312,9 @@ function afficher() {
       <td>${escapeHtml(profilsMap[m.user_id] || '-')}</td>
       <td>${m.numero_recu ? escapeHtml(m.numero_recu) : '-'}</td>
       <td>
-        ${peutEcrire ? `<button class="btn-action btn-orange" data-action="modifier" data-id="${m.id}">MODIF</button>` : ''}
-        ${peutSupprimer ? `<button class="btn-action btn-rouge" data-action="supprimer" data-id="${m.id}">SUPPR</button>` : ''}
+        ${verrouille ? '<span class="badge" style="background:#e2e8f0;color:#64748b" title="Exercice clôturé">🔒</span>' : ''}
+        ${peutEcrire && !verrouille ? `<button class="btn-action btn-orange" data-action="modifier" data-id="${m.id}">MODIF</button>` : ''}
+        ${peutSupprimer && !verrouille ? `<button class="btn-action btn-rouge" data-action="supprimer" data-id="${m.id}">SUPPR</button>` : ''}
         ${m.type === 'entree' ? `<button class="btn-action btn-violet" data-action="recu" data-id="${m.id}">RECU</button>` : ''}
       </td>
     </tr>`;
@@ -361,6 +378,86 @@ function genererGraphiqueImage() {
     });
     setTimeout(() => resolve(canvas.toDataURL()), 700);
   });
+}
+
+// ---------- Clôture d'exercice ----------
+
+function soldeADate(nom, dateLimite) {
+  const mv = mouvements.filter(m => new Date(m.date) <= dateLimite);
+  if (nom === "Caisse Générale") {
+    const idsGenerales = new Set(caisses.filter(c => c.incluse_caisse_generale).map(c => c.id));
+    const entrees = mv.filter(m => m.type === 'entree' && idsGenerales.has(m.caisse_id)).reduce((a, b) => a + Number(b.montant), 0);
+    const depenses = mv.filter(m => m.type === 'depense' && m.caisse_id === null).reduce((a, b) => a + Number(b.montant), 0);
+    return entrees - depenses;
+  }
+  const caisse = caisses.find(c => c.nom === nom);
+  if (!caisse) return 0;
+  const entrees = mv.filter(m => m.type === 'entree' && m.caisse_id === caisse.id).reduce((a, b) => a + Number(b.montant), 0);
+  const depenses = mv.filter(m => m.type === 'depense' && m.caisse_id === caisse.id).reduce((a, b) => a + Number(b.montant), 0);
+  return entrees - depenses;
+}
+
+function anneesDisponiblesPourCloture() {
+  const anneeCourante = new Date().getFullYear();
+  const anneesMouvements = new Set(mouvements.map(m => new Date(m.date).getFullYear()));
+  anneesMouvements.add(anneeCourante);
+  const toutesCaisses = [...caisses.map(c => c.id), null];
+  return [...anneesMouvements].sort((a, b) => a - b).filter(a => {
+    const clotureesPourCetteAnnee = clotures.filter(c => c.annee === a).map(c => c.caisse_id);
+    return !toutesCaisses.every(id => clotureesPourCetteAnnee.includes(id));
+  });
+}
+
+function afficherClotures() {
+  const bloc = document.getElementById('blocClotureAction');
+  if (profil && profil.role === 'tresorier_principal') {
+    const annees = anneesDisponiblesPourCloture();
+    bloc.innerHTML = annees.length === 0
+      ? `<h3>Clôturer un exercice</h3><p style="color:#64748b">Toutes les années avec des écritures sont déjà clôturées.</p>`
+      : `<h3>Clôturer un exercice</h3>
+        <label>Année</label>
+        <select id="selAnneeCloture">${annees.map(a => `<option value="${a}">${a}</option>`).join('')}</select>
+        <button class="btn-save" style="background:var(--violet)" onclick="cloturerExercice()">CLÔTURER CET EXERCICE</button>
+        <small style="display:block; margin-top:8px; color:#64748b">Une fois clôturée, les écritures de cette année (et des années antérieures) ne pourront plus être modifiées ni supprimées pour les caisses concernées. Action irréversible.</small>`;
+  } else {
+    bloc.innerHTML = `<h3>Clôturer un exercice</h3><p style="color:#64748b">Seul le trésorier principal peut clôturer un exercice.</p>`;
+  }
+
+  let html = "";
+  clotures.forEach(c => {
+    html += `<tr><td>${c.annee}</td><td>${escapeHtml(caisseNomParId(c.caisse_id))}</td><td>${Number(c.solde_cloture).toLocaleString()} FCFA</td><td>${new Date(c.date_cloture).toLocaleDateString('fr-FR')}</td><td>${escapeHtml(profilsMap[c.cloture_par] || '-')}</td></tr>`;
+  });
+  if (!html) html = '<tr><td colspan="5" style="text-align:center">Aucune clôture effectuée</td></tr>';
+  document.getElementById('tbodyClotures').innerHTML = html;
+}
+
+async function cloturerExercice() {
+  const annee = parseInt(document.getElementById('selAnneeCloture').value);
+  if (!confirm(`Clôturer l'exercice ${annee} ? Les écritures de ${annee} et des années antérieures ne pourront plus être modifiées ni supprimées pour les caisses concernées. Cette action est irréversible.`)) return;
+
+  const dateLimite = new Date(annee, 11, 31, 23, 59, 59);
+  const lignes = caisses.map(c => ({
+    annee, caisse_id: c.id, solde_cloture: soldeADate(c.nom, dateLimite), cloture_par: session.user.id
+  }));
+  lignes.push({ annee, caisse_id: null, solde_cloture: soldeADate("Caisse Générale", dateLimite), cloture_par: session.user.id });
+
+  const { error } = await supabase.from('clotures').upsert(lignes, { onConflict: 'annee,caisse_id' });
+  if (error) { alert("Erreur: " + error.message); return; }
+  await chargerClotures();
+  afficherClotures();
+  afficher();
+  imprimerCertificatCloture(annee);
+}
+
+function imprimerCertificatCloture(annee) {
+  const lignesCloture = clotures.filter(c => c.annee === annee);
+  const lignes = lignesCloture.map(c => `<tr><td>${escapeHtml(caisseNomParId(c.caisse_id))}</td><td>${Number(c.solde_cloture).toLocaleString()} FCFA</td></tr>`).join('');
+  const tableHtml = `<table><thead><tr><th>Caisse</th><th>Solde au 31/12/${annee}</th></tr></thead><tbody>${lignes}</tbody></table>`;
+  const contenu = pageImpression("CERTIFICAT DE CLÔTURE D'EXERCICE " + annee, "Exercice " + annee, '', tableHtml);
+  const w = window.open('');
+  w.document.write(contenu);
+  w.document.close();
+  setTimeout(() => w.print(), 800);
 }
 
 // ---------- Impression / PDF ----------
@@ -764,5 +861,6 @@ Object.assign(window, {
   basculerOnglet, connexion, inscription, deconnexion, connexionGoogle, motDePasseOublie, validerNouveauMotDePasse,
   toggleDates, afficher, enregistrer, fermer,
   toggleNomLibre, ouvrirMembre, enregistrerMembre, fermerMembre, afficherMembres, ajouterCaisse,
-  sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre
+  sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre,
+  cloturerExercice
 });
