@@ -141,6 +141,7 @@
   <button onclick="showPage('dashboard')">📊 DASHBOARD</button>
   <button onclick="showPage('membres')">👥 MEMBRES</button>
   <button onclick="showPage('cloture')">🔒 CLÔTURE</button>
+  <button onclick="showPage('sections')">🏛️ SECTIONS</button>
   <button onclick="ouvrir('ajout')" class="btn-vert">+ AJOUTER</button>
   <button onclick="ouvrir('depense')" class="btn-rouge">- DEPENSE</button>
   <button onclick="imprimerEtat('general')">🖨️ ETAT GENERAL</button>
@@ -198,6 +199,39 @@
     <div class="section" id="blocClotureAction"></div>
     <div class="section"><h3>Historique des clôtures</h3><table><thead><tr><th>Année</th><th>Caisse</th><th>Solde clôturé</th><th>Date</th><th>Clôturé par</th></tr></thead><tbody id="tbodyClotures"></tbody></table></div>
   </div>
+
+  <div id="page-sections" class="hidden">
+    <div id="vueSectionsListe">
+      <h2 style="color:var(--bleu); margin:0 0 15px">Sections & Groupes</h2>
+      <div class="grid" id="grilleSections" style="margin-bottom:20px"></div>
+      <div class="section" id="blocNouvelleSection"></div>
+    </div>
+    <div id="vueSectionDetail" class="hidden">
+      <button onclick="retourListeSections()" style="padding:8px 15px; background:var(--gris); border:none; border-radius:8px; cursor:pointer; margin-bottom:15px">← Retour aux sections</button>
+      <h2 id="titreSectionDetail" style="color:var(--bleu); margin:0 0 15px"></h2>
+      <div class="grid" style="margin-bottom:15px">
+        <div class="card-pro"><h3>Solde de la section</h3><div class="montant" id="soldeSectionDetail">0 FCFA</div></div>
+      </div>
+      <div class="section">
+        <h3>Types de cotisation</h3>
+        <div id="listeCotisationTypes"></div>
+        <div id="blocNouvelleCotisationType"></div>
+      </div>
+      <div class="section">
+        <h3>Suivi des paiements</h3>
+        <div class="filtre-box" style="margin-bottom:12px">
+          <select id="selTypeCotisationSuivi" onchange="onChangeTypeCotisationSuivi()"><option value="">-- Choisir un type de cotisation --</option></select>
+          <span id="periodeSuiviContainer"></span>
+        </div>
+        <table><thead><tr><th>Membre</th><th>Statut</th><th>Action</th></tr></thead><tbody id="grilleSuiviCotisation"></tbody></table>
+      </div>
+      <div class="section">
+        <h3>Membres de la section</h3>
+        <div id="listeMembresSection"></div>
+        <div id="blocAjoutMembreSection"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 </div>
@@ -216,6 +250,7 @@
   <div class="modal-content">
     <h3 id="titreModal"></h3>
     <input type="hidden" id="idModif"><input type="hidden" id="typeSaisie">
+    <input type="hidden" id="cotisationTypeIdSaisie"><input type="hidden" id="periodeSaisie">
     <label>Caisse</label><select id="selCaisse"></select>
     <label>Date</label><input type="date" id="dateSaisie">
     <label>Donateur / Bénéficiaire</label>
@@ -262,6 +297,11 @@
       </div>
     </div>
 
+    <div id="blocUtilisateurs">
+      <hr><h4>UTILISATEURS</h4>
+      <div id="listeUtilisateurs"></div>
+    </div>
+
     <hr><h4>EXPORT / SAUVEGARDE MANUELLE</h4>
     <button onclick="exportExcel()" class="btn-save" style="background:var(--bleu-clair)">EXPORTER TOUT EN EXCEL</button>
 
@@ -269,6 +309,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>

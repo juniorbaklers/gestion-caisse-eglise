@@ -10,7 +10,12 @@ let caisses = [];
 let membres = [];
 let mouvements = [];
 let profilsMap = {};
+let profilsTous = [];
 let clotures = [];
+let sections = [];
+let sectionMembres = [];
+let cotisationTypes = [];
+let sectionCouranteId = null;
 let params = { nom: 'EGLISE', ville: '', quartier: '', logo_url: '' };
 let monGraphique = null;
 
@@ -47,7 +52,12 @@ function estVerrouille(m) {
   return clotures.some(c => c.annee >= annee && c.caisse_id === m.caisse_id);
 }
 function libelleRole(r) {
-  return { tresorier_principal: 'Trésorier Principal', tresorier_adjoint: 'Trésorier Adjoint', lecture_seule: 'Lecture seule' }[r] || r;
+  return { tresorier_principal: 'Trésorier Principal', tresorier_adjoint: 'Trésorier Adjoint', responsable_section: 'Responsable de Section', lecture_seule: 'Lecture seule' }[r] || r;
+}
+function peutGererSection(sectionId) {
+  if (!profil) return false;
+  if (profil.role === 'tresorier_principal' || profil.role === 'tresorier_adjoint') return true;
+  return profil.role === 'responsable_section' && profil.section_id === sectionId;
 }
 
 // ---------- Authentification ----------
@@ -146,6 +156,25 @@ function lancerModeDemo() {
   ];
   profilsMap = { 'demo-user': 'Trésorier Démo' };
   clotures = [];
+  caisses.push(
+    { id: 'demo-6', nom: 'Jeunesse', incluse_caisse_generale: false, actif: true, ordre: 6 },
+    { id: 'demo-7', nom: 'Chorale', incluse_caisse_generale: false, actif: true, ordre: 7 }
+  );
+  sections = [
+    { id: 'demo-s1', nom: 'Jeunesse', caisse_id: 'demo-6', actif: true },
+    { id: 'demo-s2', nom: 'Chorale', caisse_id: 'demo-7', actif: true },
+  ];
+  sectionMembres = [
+    { section_id: 'demo-s1', membre_id: 'demo-m1' },
+    { section_id: 'demo-s1', membre_id: 'demo-m3' },
+    { section_id: 'demo-s2', membre_id: 'demo-m2' },
+  ];
+  cotisationTypes = [
+    { id: 'demo-ct1', section_id: 'demo-s1', nom: 'Cotisation mensuelle Jeunesse', montant: 1000, frequence: 'mensuelle', actif: true },
+    { id: 'demo-ct2', section_id: 'demo-s2', nom: 'Cotisation trimestrielle Chorale', montant: 3000, frequence: 'trimestrielle', actif: true },
+  ];
+  mouvements.push({ id: 'demo-mv6', type: 'entree', caisse_id: 'demo-6', membre_id: 'demo-m1', nom_libre: null, date: auj, montant: 1000, motif: 'Cotisation mensuelle Jeunesse', numero_recu: null, user_id: 'demo-user', cotisation_type_id: 'demo-ct1', periode: auj.slice(0, 7) });
+  profilsTous = [{ id: 'demo-user', nom_complet: 'Trésorier Démo', role: 'tresorier_principal', section_id: null }];
   params = { nom: 'Église Démonstration', ville: 'Abidjan', quartier: 'Cocody', logo_url: '' };
 
   document.getElementById('ecranAuth').classList.add('hidden');
@@ -234,8 +263,27 @@ async function chargerClotures() {
   const { data } = await supabase.from('clotures').select('*').order('annee', { ascending: false });
   clotures = data || [];
 }
+async function chargerSections() {
+  const { data } = await supabase.from('sections').select('*').order('nom');
+  sections = data || [];
+}
+async function chargerSectionMembres() {
+  const { data } = await supabase.from('section_membres').select('*');
+  sectionMembres = data || [];
+}
+async function chargerCotisationTypes() {
+  const { data } = await supabase.from('cotisation_types').select('*').order('nom');
+  cotisationTypes = data || [];
+}
+async function chargerProfilsTous() {
+  const { data } = await supabase.from('profils').select('*').order('nom_complet');
+  profilsTous = data || [];
+}
 async function chargerToutesLesDonnees() {
-  await Promise.all([chargerParams(), chargerCaisses(), chargerMembres(), chargerMouvements(), chargerProfils(), chargerClotures()]);
+  await Promise.all([
+    chargerParams(), chargerCaisses(), chargerMembres(), chargerMouvements(), chargerProfils(), chargerClotures(),
+    chargerSections(), chargerSectionMembres(), chargerCotisationTypes(), chargerProfilsTous()
+  ]);
 }
 
 function chargerHeader() {
@@ -256,6 +304,7 @@ function showPage(p) {
   if (p === 'dashboard') setTimeout(afficherDashboard, 100);
   if (p === 'membres') afficherMembres();
   if (p === 'cloture') afficherClotures();
+  if (p === 'sections') { retourListeSections(); afficherSections(); }
 }
 
 function toggleDates() {
@@ -496,6 +545,252 @@ function imprimerCertificatCloture(annee) {
   setTimeout(() => w.print(), 800);
 }
 
+// ---------- Sections & Cotisations ----------
+
+function libelleFrequence(f) {
+  return { mensuelle: 'Mensuelle', trimestrielle: 'Trimestrielle', annuelle: 'Annuelle', ponctuelle: 'Ponctuelle' }[f] || f;
+}
+
+function afficherSections() {
+  let html = "";
+  sections.filter(s => s.actif).forEach(s => {
+    const nbMembres = sectionMembres.filter(sm => sm.section_id === s.id).length;
+    const caisse = caisses.find(c => c.id === s.caisse_id);
+    const solde = caisse ? getSolde(caisse.nom) : 0;
+    html += `<div class="card-pro card-ecodim" data-section="${s.id}">
+      <h3 style="color:white">${escapeHtml(s.nom)}</h3>
+      <div class="montant" style="color:white">${solde.toLocaleString()} FCFA</div>
+      <small>${nbMembres} membre${nbMembres > 1 ? 's' : ''} — clique pour gérer</small>
+    </div>`;
+  });
+  document.getElementById('grilleSections').innerHTML = html || '<p style="color:#64748b">Aucune section créée</p>';
+
+  const bloc = document.getElementById('blocNouvelleSection');
+  if (profil && profil.role === 'tresorier_principal') {
+    bloc.innerHTML = `<h3>Nouvelle section</h3>
+      <div style="display:flex; gap:8px">
+        <input id="nouvelleSection" placeholder="Ex: Jeunesse, Femmes, Chorale..." style="margin:0">
+        <button onclick="ajouterSection()" style="padding:0 16px; background:var(--vert); color:white; border:none; border-radius:8px; cursor:pointer">+</button>
+      </div>`;
+  } else {
+    bloc.innerHTML = '';
+  }
+}
+
+async function ajouterSection() {
+  const nom = document.getElementById('nouvelleSection').value.trim();
+  if (!nom) return;
+  const ordre = caisses.length ? Math.max(...caisses.map(c => c.ordre || 0)) + 1 : 1;
+  const { data: caisse, error: errCaisse } = await supabase.from('caisses').insert({ nom, ordre, incluse_caisse_generale: false, actif: true }).select().single();
+  if (errCaisse) { alert("Erreur: " + errCaisse.message); return; }
+  const { error: errSection } = await supabase.from('sections').insert({ nom, caisse_id: caisse.id, actif: true });
+  if (errSection) { alert("Erreur: " + errSection.message); return; }
+  document.getElementById('nouvelleSection').value = '';
+  await Promise.all([chargerCaisses(), chargerSections()]);
+  afficherSections();
+  afficher();
+}
+
+function retourListeSections() {
+  sectionCouranteId = null;
+  document.getElementById('vueSectionsListe').classList.remove('hidden');
+  document.getElementById('vueSectionDetail').classList.add('hidden');
+}
+
+function ouvrirSection(id) {
+  sectionCouranteId = id;
+  const s = sections.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('vueSectionsListe').classList.add('hidden');
+  document.getElementById('vueSectionDetail').classList.remove('hidden');
+  document.getElementById('titreSectionDetail').textContent = s.nom;
+  const caisse = caisses.find(c => c.id === s.caisse_id);
+  document.getElementById('soldeSectionDetail').textContent = (caisse ? getSolde(caisse.nom) : 0).toLocaleString() + ' FCFA';
+  afficherCotisationTypes();
+  remplirSelectTypeCotisationSuivi();
+  afficherMembresSection();
+}
+
+function afficherCotisationTypes() {
+  const peut = peutGererSection(sectionCouranteId);
+  const types = cotisationTypes.filter(t => t.section_id === sectionCouranteId);
+  let html = types.length === 0 ? '<p style="color:#64748b">Aucun type de cotisation défini</p>' : '';
+  types.forEach(t => {
+    html += `<div class="caisse-row"><span>${escapeHtml(t.nom)} — ${Number(t.montant).toLocaleString()} FCFA (${libelleFrequence(t.frequence)})</span></div>`;
+  });
+  document.getElementById('listeCotisationTypes').innerHTML = html;
+
+  const bloc = document.getElementById('blocNouvelleCotisationType');
+  if (peut) {
+    bloc.innerHTML = `
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+        <input id="nomTypeCotisation" placeholder="Nom (ex: Cotisation mensuelle)" style="margin:0; flex:2">
+        <input id="montantTypeCotisation" type="number" placeholder="Montant FCFA" style="margin:0; flex:1">
+        <select id="frequenceTypeCotisation" style="margin:0; flex:1">
+          <option value="mensuelle">Mensuelle</option>
+          <option value="trimestrielle">Trimestrielle</option>
+          <option value="annuelle">Annuelle</option>
+          <option value="ponctuelle">Ponctuelle</option>
+        </select>
+        <button onclick="ajouterTypeCotisation()" style="padding:0 16px; background:var(--vert); color:white; border:none; border-radius:8px; cursor:pointer">+</button>
+      </div>`;
+  } else {
+    bloc.innerHTML = '';
+  }
+}
+
+async function ajouterTypeCotisation() {
+  const nom = document.getElementById('nomTypeCotisation').value.trim();
+  const montant = parseFloat(document.getElementById('montantTypeCotisation').value) || 0;
+  const frequence = document.getElementById('frequenceTypeCotisation').value;
+  if (!nom || montant <= 0) { alert("Nom et montant requis"); return; }
+  const { error } = await supabase.from('cotisation_types').insert({ section_id: sectionCouranteId, nom, montant, frequence, actif: true });
+  if (error) { alert("Erreur: " + error.message); return; }
+  await chargerCotisationTypes();
+  afficherCotisationTypes();
+  remplirSelectTypeCotisationSuivi();
+}
+
+function remplirSelectTypeCotisationSuivi() {
+  const sel = document.getElementById('selTypeCotisationSuivi');
+  const types = cotisationTypes.filter(t => t.section_id === sectionCouranteId && t.actif);
+  sel.innerHTML = '<option value="">-- Choisir un type de cotisation --</option>' + types.map(t => `<option value="${t.id}">${escapeHtml(t.nom)}</option>`).join('');
+  document.getElementById('periodeSuiviContainer').innerHTML = '';
+  document.getElementById('grilleSuiviCotisation').innerHTML = '';
+}
+
+function onChangeTypeCotisationSuivi() {
+  const typeId = document.getElementById('selTypeCotisationSuivi').value;
+  const cont = document.getElementById('periodeSuiviContainer');
+  if (!typeId) { cont.innerHTML = ''; document.getElementById('grilleSuiviCotisation').innerHTML = ''; return; }
+  const type = cotisationTypes.find(t => t.id === typeId);
+  const now = new Date();
+  if (type.frequence === 'mensuelle') {
+    const val = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    cont.innerHTML = `<input type="month" id="inputPeriodeSuivi" value="${val}" onchange="afficherSuiviCotisation()">`;
+  } else if (type.frequence === 'trimestrielle') {
+    const trimestre = Math.floor(now.getMonth() / 3) + 1;
+    cont.innerHTML = `<select id="inputTrimestreSuivi" onchange="afficherSuiviCotisation()">${[1, 2, 3, 4].map(t => `<option value="${t}" ${t === trimestre ? 'selected' : ''}>T${t}</option>`).join('')}</select><input type="number" id="inputAnneeSuivi" value="${now.getFullYear()}" style="width:100px" onchange="afficherSuiviCotisation()">`;
+  } else if (type.frequence === 'annuelle') {
+    cont.innerHTML = `<input type="number" id="inputAnneeSuivi" value="${now.getFullYear()}" style="width:100px" onchange="afficherSuiviCotisation()">`;
+  } else {
+    cont.innerHTML = `<small style="color:#64748b">Cotisation ponctuelle — pas de période</small>`;
+  }
+  afficherSuiviCotisation();
+}
+
+function calculerPeriodeSuivie(frequence) {
+  if (frequence === 'mensuelle') return document.getElementById('inputPeriodeSuivi')?.value || '';
+  if (frequence === 'trimestrielle') {
+    const t = document.getElementById('inputTrimestreSuivi')?.value;
+    const a = document.getElementById('inputAnneeSuivi')?.value;
+    return a && t ? `${a}-T${t}` : '';
+  }
+  if (frequence === 'annuelle') return document.getElementById('inputAnneeSuivi')?.value || '';
+  return null;
+}
+
+function afficherSuiviCotisation() {
+  const typeId = document.getElementById('selTypeCotisationSuivi').value;
+  if (!typeId) return;
+  const type = cotisationTypes.find(t => t.id === typeId);
+  const periode = calculerPeriodeSuivie(type.frequence);
+  const peut = peutGererSection(sectionCouranteId);
+  const membresSection = sectionMembres.filter(sm => sm.section_id === sectionCouranteId)
+    .map(sm => membres.find(m => m.id === sm.membre_id)).filter(Boolean);
+
+  let html = "";
+  membresSection.forEach(m => {
+    const paiement = mouvements.find(mv => mv.cotisation_type_id === typeId && mv.membre_id === m.id && (type.frequence === 'ponctuelle' || mv.periode === periode));
+    html += `<tr>
+      <td>${escapeHtml(m.nom_complet)}</td>
+      <td>${paiement ? `<span class="badge badge-entree">Payé — ${Number(paiement.montant).toLocaleString()} FCFA le ${escapeHtml(paiement.date)}</span>` : '<span class="badge badge-depense">Non payé</span>'}</td>
+      <td>${!paiement && peut ? `<button class="btn-action btn-vert" data-action="payer-cotisation" data-type="${typeId}" data-periode="${periode || ''}" data-membre="${m.id}">ENREGISTRER PAIEMENT</button>` : ''}</td>
+    </tr>`;
+  });
+  document.getElementById('grilleSuiviCotisation').innerHTML = html || '<tr><td colspan="3" style="text-align:center">Aucun membre dans cette section</td></tr>';
+}
+
+function ouvrirPourCotisation(typeId, periode, membreId) {
+  const type = cotisationTypes.find(t => t.id === typeId);
+  const section = sections.find(s => s.id === type.section_id);
+  ouvrir('ajout');
+  document.getElementById('selCaisse').value = section.caisse_id;
+  document.getElementById('selMembre').value = membreId;
+  toggleNomLibre();
+  document.getElementById('montantSaisie').value = type.montant;
+  document.getElementById('motifSaisie').value = type.nom + (periode ? ' - ' + periode : '');
+  document.getElementById('cotisationTypeIdSaisie').value = typeId;
+  document.getElementById('periodeSaisie').value = periode || '';
+}
+
+function afficherMembresSection() {
+  const peut = peutGererSection(sectionCouranteId);
+  const idsMembresSection = new Set(sectionMembres.filter(sm => sm.section_id === sectionCouranteId).map(sm => sm.membre_id));
+  const membresSection = membres.filter(m => idsMembresSection.has(m.id));
+  let html = membresSection.length === 0 ? '<p style="color:#64748b">Aucun membre dans cette section</p>' : '';
+  membresSection.forEach(m => {
+    html += `<div class="caisse-row"><span>${escapeHtml(m.nom_complet)}</span>${peut ? `<button class="btn-action btn-rouge" data-action="retirer-membre-section" data-id="${m.id}">RETIRER</button>` : ''}</div>`;
+  });
+  document.getElementById('listeMembresSection').innerHTML = html;
+
+  const bloc = document.getElementById('blocAjoutMembreSection');
+  if (peut) {
+    const membresDisponibles = membres.filter(m => m.actif && !idsMembresSection.has(m.id));
+    bloc.innerHTML = `
+      <div style="display:flex; gap:8px; margin-top:10px">
+        <select id="selMembreAAjouter" style="margin:0; flex:1">${membresDisponibles.map(m => `<option value="${m.id}">${escapeHtml(m.nom_complet)}</option>`).join('')}</select>
+        <button onclick="ajouterMembreASection()" style="padding:0 16px; background:var(--vert); color:white; border:none; border-radius:8px; cursor:pointer">+</button>
+      </div>`;
+  } else {
+    bloc.innerHTML = '';
+  }
+}
+
+async function ajouterMembreASection() {
+  const membreId = document.getElementById('selMembreAAjouter').value;
+  if (!membreId) return;
+  const { error } = await supabase.from('section_membres').insert({ section_id: sectionCouranteId, membre_id: membreId });
+  if (error) { alert("Erreur: " + error.message); return; }
+  await chargerSectionMembres();
+  afficherMembresSection();
+  afficherSuiviCotisation();
+  afficherSections();
+}
+
+async function retirerMembreDeSection(membreId) {
+  if (!confirm("Retirer ce membre de la section ?")) return;
+  const { error } = await supabase.from('section_membres').delete().eq('section_id', sectionCouranteId).eq('membre_id', membreId);
+  if (error) { alert("Erreur: " + error.message); return; }
+  await chargerSectionMembres();
+  afficherMembresSection();
+  afficherSuiviCotisation();
+  afficherSections();
+}
+
+// ---------- Gestion des utilisateurs (rôles) ----------
+
+function renderListeUtilisateurs() {
+  const bloc = document.getElementById('blocUtilisateurs');
+  if (!profil || profil.role !== 'tresorier_principal') { bloc.classList.add('hidden'); return; }
+  bloc.classList.remove('hidden');
+  const roles = ['tresorier_principal', 'tresorier_adjoint', 'responsable_section', 'lecture_seule'];
+  let html = "";
+  profilsTous.forEach(p => {
+    html += `<div class="caisse-row">
+      <span>${escapeHtml(p.nom_complet)}</span>
+      <select data-action="changer-role" data-id="${p.id}" style="width:auto">
+        ${roles.map(r => `<option value="${r}" ${p.role === r ? 'selected' : ''}>${libelleRole(r)}</option>`).join('')}
+      </select>
+      <select data-action="changer-section" data-id="${p.id}" style="width:auto" ${p.role !== 'responsable_section' ? 'disabled' : ''}>
+        <option value="">-- Aucune section --</option>
+        ${sections.map(s => `<option value="${s.id}" ${p.section_id === s.id ? 'selected' : ''}>${escapeHtml(s.nom)}</option>`).join('')}
+      </select>
+    </div>`;
+  });
+  document.getElementById('listeUtilisateurs').innerHTML = html;
+}
+
 // ---------- Impression / PDF ----------
 
 function pageImpression(titre, periode, resumeHtml, tableHtml) {
@@ -641,12 +936,16 @@ function ouvrir(type, id = null) {
     document.getElementById('nomLibreSaisie').value = item.nom_libre || "";
     document.getElementById('montantSaisie').value = item.montant;
     document.getElementById('motifSaisie').value = item.motif || "";
+    document.getElementById('cotisationTypeIdSaisie').value = item.cotisation_type_id || "";
+    document.getElementById('periodeSaisie').value = item.periode || "";
   } else {
     document.getElementById('dateSaisie').value = new Date().toISOString().split('T')[0];
     selMembre.value = "";
     document.getElementById('nomLibreSaisie').value = "";
     document.getElementById('montantSaisie').value = "";
     document.getElementById('motifSaisie').value = "";
+    document.getElementById('cotisationTypeIdSaisie').value = "";
+    document.getElementById('periodeSaisie').value = "";
   }
   document.getElementById('genereRecu').checked = false;
   toggleNomLibre();
@@ -684,6 +983,8 @@ async function enregistrer() {
     date: dateVal,
     montant,
     motif: document.getElementById('motifSaisie').value.trim(),
+    cotisation_type_id: document.getElementById('cotisationTypeIdSaisie').value || null,
+    periode: document.getElementById('periodeSaisie').value || null,
   };
 
   try {
@@ -796,6 +1097,7 @@ function ouvrirParam() {
   ['inpNom', 'inpVille', 'inpQuartier', 'inpLogo'].forEach(id => { document.getElementById(id).disabled = !estPrincipal; });
   document.querySelector('#modalParam .btn-save').style.display = estPrincipal ? 'block' : 'none';
   renderListeCaisses();
+  renderListeUtilisateurs();
   document.getElementById('modalParam').style.display = 'flex';
 }
 function fermerParam() { document.getElementById('modalParam').style.display = 'none'; }
@@ -886,6 +1188,30 @@ function attacherEcouteurs() {
     await chargerCaisses();
     afficher();
   });
+  document.getElementById('grilleSections').addEventListener('click', e => {
+    const card = e.target.closest('[data-section]');
+    if (card) ouvrirSection(card.dataset.section);
+  });
+  document.getElementById('grilleSuiviCotisation').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action="payer-cotisation"]');
+    if (btn) ouvrirPourCotisation(btn.dataset.type, btn.dataset.periode || null, btn.dataset.membre);
+  });
+  document.getElementById('listeMembresSection').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action="retirer-membre-section"]');
+    if (btn) retirerMembreDeSection(btn.dataset.id);
+  });
+  document.getElementById('listeUtilisateurs').addEventListener('change', async e => {
+    const el = e.target.closest('select[data-action]');
+    if (!el) return;
+    const id = el.dataset.id;
+    if (el.dataset.action === 'changer-role') {
+      await supabase.from('profils').update({ role: el.value }).eq('id', id);
+    } else if (el.dataset.action === 'changer-section') {
+      await supabase.from('profils').update({ section_id: el.value || null }).eq('id', id);
+    }
+    await Promise.all([chargerProfilsTous(), chargerProfils()]);
+    renderListeUtilisateurs();
+  });
 }
 
 // ---------- Démarrage ----------
@@ -901,5 +1227,6 @@ Object.assign(window, {
   toggleDates, afficher, enregistrer, fermer,
   toggleNomLibre, ouvrirMembre, enregistrerMembre, fermerMembre, afficherMembres, ajouterCaisse,
   sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre,
-  cloturerExercice
+  cloturerExercice, ajouterSection, ouvrirSection, retourListeSections, ajouterTypeCotisation, onChangeTypeCotisationSuivi,
+  afficherSuiviCotisation, ajouterMembreASection
 });
