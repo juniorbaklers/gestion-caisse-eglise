@@ -43,10 +43,12 @@
   nav button{padding:10px 15px; border:1.5px solid transparent; background:transparent; color:var(--encre); border-radius:9px; cursor:pointer; font-weight:600; white-space:nowrap; font-size:13px; font-family:'Inter',Arial; transition:background-color .15s, border-color .15s, color .15s}
   nav button:hover{background:#F1ECDD}
   nav button.btn-vert,nav button.btn-rouge{color:#fff}
-  nav button.btn-violet,nav button.btn-pdf{background:transparent; color:var(--or); border-color:var(--or)}
-  nav button.btn-violet:hover,nav button.btn-pdf:hover{background:#FAF3E3}
-  nav button.btn-graph{background:transparent; color:var(--bleu-clair); border-color:var(--bleu-clair)}
-  nav button.btn-graph:hover{background:#EEF1F8}
+  nav button.btn-violet,nav button.btn-pdf{background:transparent!important; color:var(--or)!important; border-color:var(--or)!important}
+  nav button.btn-violet:hover,nav button.btn-pdf:hover{background:#FAF3E3!important}
+  nav button.btn-graph{background:transparent!important; color:var(--bleu-clair)!important; border-color:var(--bleu-clair)!important}
+  nav button.btn-graph:hover{background:#EEF1F8!important}
+  .nav-sep{width:1px; align-self:stretch; background:var(--ligne); margin:6px 6px; flex-shrink:0}
+  nav .btn-violet{margin-left:auto}
 .btn-vert{background:var(--vert)!important}.btn-rouge{background:var(--rouge)!important}.btn-orange{background:var(--orange)!important}.btn-violet{background:var(--or)!important}.btn-pdf{background:var(--or)!important}.btn-graph{background:var(--bleu-clair)!important}
 .container{padding:20px; max-width:1400px; margin:auto}
 .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px}
@@ -174,8 +176,10 @@
   <button onclick="showPage('membres')">👥 MEMBRES</button>
   <button onclick="showPage('cloture')">🔒 CLÔTURE</button>
   <button onclick="showPage('sections')">🏛️ SECTIONS</button>
+  <span class="nav-sep"></span>
   <button onclick="ouvrir('ajout')" class="btn-vert">+ AJOUTER</button>
   <button onclick="ouvrir('depense')" class="btn-rouge">- DEPENSE</button>
+  <span class="nav-sep"></span>
   <button onclick="imprimerEtat('general')">🖨️ ETAT GENERAL</button>
   <button onclick="imprimerGraphique()" class="btn-graph">📊 GRAPHIQUE</button>
   <button onclick="exportPDFGeneral()" class="btn-pdf">📄 PDF GENERAL</button>
@@ -341,6 +345,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>
