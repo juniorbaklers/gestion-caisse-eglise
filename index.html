@@ -4,92 +4,124 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestion Trésorerie Eglise</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-  :root{ --bleu:#1e3a8a; --bleu-clair:#2563eb; --vert:#16a34a; --rouge:#dc2626; --orange:#f97316; --violet:#7c3aed; --gris:#f4f6f9; }
-  *{box-sizing:border-box; font-family:'Poppins', Arial}
-  body{margin:0; background:var(--gris); font-size:15px; color:#1e293b}
-  label{display:block; font-weight:600; font-size:12.5px; color:#64748b; letter-spacing:.3px; text-transform:uppercase; margin:10px 0 5px}
-  label:has(input[type=checkbox]),label:has(input[type=radio]){display:flex; align-items:center; gap:8px; text-transform:none; font-size:14px; color:#334155; font-weight:500; width:auto}
-  label:has(input[type=checkbox]) input,label:has(input[type=radio]) input{width:auto}
-  input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],select{
-    width:100%; padding:12px 14px; margin:0; border:1.5px solid #e2e8f0; border-radius:10px; font-size:16px; font-family:'Poppins',Arial; background:#fff; transition:border-color .15s, box-shadow .15s;
+  :root{
+    --bleu:#16234A; --bleu-clair:#2B4C8C; --vert:#2F6B4F; --rouge:#A23B34; --orange:#B8672E; --violet:#A6791E;
+    --or:#A6791E; --encre:#151B2C; --gris:#F6F2E8; --ligne:#E7E0CF; --carte:#FFFFFF;
   }
-  input:focus,select:focus{outline:none; border-color:var(--bleu-clair); box-shadow:0 0 0 4px rgba(37,99,235,0.12)}
-  header{background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); color:white; padding:20px; display:flex; align-items:center; gap:15px; box-shadow:0 4px 20px rgba(30,58,138,0.18)}
-  header img{height:60px; background:white; padding:5px; border-radius:8px}
+  *{box-sizing:border-box; font-family:'Inter', Arial, sans-serif}
+  body{margin:0; background:var(--gris); font-size:15px; color:var(--encre)}
+  h1,h2,h3,.boite-auth h2{font-family:'Fraunces', Georgia, serif; font-weight:600; letter-spacing:-.01em}
+  table td{font-variant-numeric:tabular-nums}
+  .montant{font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+  label{display:block; font-weight:600; font-size:12px; color:#7A7358; letter-spacing:.4px; text-transform:uppercase; margin:10px 0 5px}
+  label:has(input[type=checkbox]),label:has(input[type=radio]){display:flex; align-items:center; gap:8px; text-transform:none; font-size:14px; color:var(--encre); font-weight:500; width:auto; letter-spacing:0}
+  label:has(input[type=checkbox]) input,label:has(input[type=radio]) input{width:auto}
+  input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),select{
+    width:100%; padding:12px 14px; margin:0; border:1.5px solid var(--ligne); border-radius:10px; font-size:16px; font-family:'Inter',Arial; background:#fff; color:var(--encre); transition:border-color .15s, box-shadow .15s;
+  }
+  input:focus,select:focus{outline:none; border-color:var(--bleu-clair); box-shadow:0 0 0 4px rgba(43,76,140,0.12)}
+  input::placeholder{color:#B4AC90}
+  .btn-mini{padding:9px 16px; background:var(--bleu-clair); color:#fff; border:none; border-radius:9px; cursor:pointer; font-weight:600; font-size:13px; transition:filter .15s; white-space:nowrap}
+  .btn-mini:hover{filter:brightness(1.1)}
+  header{background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); color:white; padding:20px 24px; display:flex; align-items:center; gap:15px; box-shadow:0 4px 20px rgba(21,27,44,0.25)}
+  header img{height:56px; background:white; padding:5px; border-radius:8px}
+  header h1{font-size:20px; margin:0; letter-spacing:0}
+  header p{margin:2px 0 0; font-size:12.5px; opacity:.75}
   header .spacer{flex:1}
-  header .compte{text-align:right; font-size:13px}
-  header .compte button{margin-top:6px; padding:6px 12px; border:none; border-radius:6px; background:rgba(255,255,255,0.2); color:white; cursor:pointer}
-  nav{display:flex; gap:10px; padding:15px 20px; background:white; overflow-x:auto}
-  nav button{padding:12px 18px; border:none; background:var(--bleu-clair); color:white; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap}
-.btn-vert{background:var(--vert)!important}.btn-rouge{background:var(--rouge)!important}.btn-orange{background:var(--orange)!important}.btn-violet{background:var(--violet)!important}.btn-pdf{background:#7c3aed!important}.btn-graph{background:#2563eb!important}
+  header .compte{text-align:right; font-size:12.5px}
+  header .compte button{margin-top:6px; padding:6px 12px; border:none; border-radius:7px; background:rgba(255,255,255,0.16); color:white; cursor:pointer; font-family:'Inter',Arial}
+  header .compte button:hover{background:rgba(255,255,255,0.26)}
+  nav{display:flex; gap:6px; padding:12px 20px; background:#fff; overflow-x:auto; border-bottom:1px solid var(--ligne)}
+  nav button{padding:10px 15px; border:1.5px solid transparent; background:transparent; color:var(--encre); border-radius:9px; cursor:pointer; font-weight:600; white-space:nowrap; font-size:13px; font-family:'Inter',Arial; transition:background-color .15s, border-color .15s, color .15s}
+  nav button:hover{background:#F1ECDD}
+  nav button.btn-vert,nav button.btn-rouge{color:#fff}
+  nav button.btn-violet,nav button.btn-pdf{background:transparent; color:var(--or); border-color:var(--or)}
+  nav button.btn-violet:hover,nav button.btn-pdf:hover{background:#FAF3E3}
+  nav button.btn-graph{background:transparent; color:var(--bleu-clair); border-color:var(--bleu-clair)}
+  nav button.btn-graph:hover{background:#EEF1F8}
+.btn-vert{background:var(--vert)!important}.btn-rouge{background:var(--rouge)!important}.btn-orange{background:var(--orange)!important}.btn-violet{background:var(--or)!important}.btn-pdf{background:var(--or)!important}.btn-graph{background:var(--bleu-clair)!important}
 .container{padding:20px; max-width:1400px; margin:auto}
-.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px}
-.card-pro{background:white; padding:20px; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.07); border-left:5px solid var(--bleu-clair); cursor:pointer; transition:0.2s}
-.card-pro:hover{transform:translateY(-3px); box-shadow:0 5px 15px rgba(0,0,0,0.1)}
-.card-pro.montant{font-size:26px; font-weight:700; color:var(--bleu)}
-.card-general{background:linear-gradient(135deg, var(--bleu), #0f2a6b); color:white}
-.card-ecodim{background:linear-gradient(135deg, var(--orange), #ea580c); color:white}
-.section{background:white; border-radius:12px; padding:20px; margin-top:20px; box-shadow:0 3px 10px rgba(0,0,0,0.07)}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px}
+.card-pro{background:var(--carte); padding:20px 22px; border-radius:14px; box-shadow:0 1px 2px rgba(21,27,44,.04), 0 10px 24px -14px rgba(21,27,44,.14); border:1px solid var(--ligne); border-left:3px solid var(--bleu-clair); cursor:pointer; transition:transform .18s, box-shadow .18s}
+.card-pro:hover{transform:translateY(-2px); box-shadow:0 1px 2px rgba(21,27,44,.04), 0 18px 32px -14px rgba(21,27,44,.2)}
+.card-pro h3{font-size:14px; margin:0 0 8px; color:#5B5540; font-weight:600; letter-spacing:.01em}
+.card-pro .montant{font-size:25px; font-weight:600; color:var(--bleu)}
+.card-general{background:linear-gradient(135deg, var(--bleu), #0A1330); color:white; border-left:none}
+.card-ecodim{background:linear-gradient(135deg, var(--orange), #8A4B1F); color:white; border-left:none}
+.section{background:var(--carte); border-radius:14px; padding:22px; margin-top:18px; border:1px solid var(--ligne); box-shadow:0 1px 2px rgba(21,27,44,.04)}
+.section h3{font-size:16px; margin:0 0 12px}
 .hidden{display:none!important}
-  table{width:100%; border-collapse:collapse; font-size:14px}
-  table th{background:var(--gris); padding:12px; text-align:left}
-  table td{padding:12px; border-bottom:1px solid #eee}
-.badge{padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600}
-.badge-entree{background:#dcfce7; color:var(--vert)}
-.badge-depense{background:#fee2e2; color:var(--rouge)}
-.btn-action{padding:6px 10px; border:none; border-radius:5px; cursor:pointer; font-size:12px; font-weight:600; color:white; margin-right:5px}
-.modal{display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:999}
-.modal-content{background:white; padding:32px; width:95%; max-width:550px; border-radius:16px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px -15px rgba(0,0,0,0.3)}
-.btn-save{width:100%; padding:14px; background:var(--vert); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; transition:filter .15s, transform .15s; box-shadow:0 4px 14px rgba(22,163,74,0.25)}
-.btn-save:hover{filter:brightness(1.06); transform:translateY(-1px)}
-.btn-annuler{width:100%; margin-top:10px; padding:12px; background:#eef1f5; color:#475569; border:none; border-radius:10px; cursor:pointer; font-weight:600}
-.btn-annuler:hover{background:#e2e8f0}
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  table th{background:transparent; padding:9px 12px; text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:#8A8168; font-weight:700; border-bottom:1.5px solid var(--encre)}
+  table td{padding:11px 12px; border-bottom:1px solid var(--ligne)}
+  table tbody tr:hover td{background:#FBF9F2}
+.badge{padding:4px 11px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:.01em}
+.badge-entree{background:#E4EEE7; color:var(--vert)}
+.badge-depense{background:#F3E4E1; color:var(--rouge)}
+.btn-action{padding:5px 10px; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600; color:white; margin-right:4px}
+.modal{display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,20,35,0.6); align-items:center; justify-content:center; z-index:999}
+.modal-content{background:var(--carte); padding:32px; width:95%; max-width:550px; border-radius:18px; max-height:90vh; overflow-y:auto; border:1px solid var(--ligne); box-shadow:0 25px 60px -15px rgba(15,20,35,0.35)}
+.modal-content h3{font-size:19px; margin:0 0 6px}
+.btn-save{width:100%; padding:14px; background:var(--vert); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; transition:filter .15s, transform .15s; box-shadow:0 4px 14px rgba(47,107,79,0.22); font-family:'Inter',Arial}
+.btn-save:hover{filter:brightness(1.08); transform:translateY(-1px)}
+.btn-annuler{width:100%; margin-top:10px; padding:12px; background:#F1ECDD; color:#5B5540; border:none; border-radius:10px; cursor:pointer; font-weight:600; font-family:'Inter',Arial}
+.btn-annuler:hover{background:#E7E0CF}
 .filtre-box{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-.filtre-box input{width:auto; padding:8px}
+.filtre-box input,.filtre-box select{width:auto}
   @media print { nav,.btn-action,.modal,header .compte { display: none!important; } body{background:white} }
   .erreur{color:var(--rouge); font-size:12.5px; margin:6px 0 4px 0; min-height:16px}
-  .onglets{display:flex; gap:4px; margin-bottom:14px; background:#f1f5f9; padding:4px; border-radius:12px}
-  .onglets button{flex:1; padding:10px; border:none; border-radius:9px; background:transparent; cursor:pointer; font-weight:600; color:#64748b; transition:.15s; font-size:13.5px}
-  .onglets button.actif{background:white; color:var(--bleu); box-shadow:0 2px 8px rgba(0,0,0,0.08)}
-  #ecranAuth{position:fixed; inset:0; background:radial-gradient(ellipse at top left, #24408f 0%, #14204d 45%, #0a1330 100%); display:flex; align-items:flex-start; justify-content:center; z-index:2000; padding:24px; padding-top:6vh; overflow-y:auto}
+  .onglets{display:flex; gap:4px; margin-bottom:14px; background:var(--gris); padding:4px; border-radius:12px}
+  .onglets button{flex:1; padding:10px; border:none; border-radius:9px; background:transparent; cursor:pointer; font-weight:600; color:#8A8168; transition:.15s; font-size:13.5px; font-family:'Inter',Arial}
+  .onglets button.actif{background:white; color:var(--bleu); box-shadow:0 2px 8px rgba(21,27,44,.08)}
+  #ecranAuth{position:fixed; inset:0; z-index:2000; padding:24px; padding-top:6vh; overflow-y:auto; display:flex; align-items:flex-start; justify-content:center;
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.028) 0px, rgba(255,255,255,0.028) 1px, transparent 1px, transparent 34px),
+      radial-gradient(ellipse at top left, #2B4C8C 0%, #16234A 45%, #0A1330 100%);
+  }
   .boite-auth{background:white; padding:32px 32px 28px; border-radius:22px; width:100%; max-width:400px; max-height:92vh; overflow-y:auto; box-shadow:0 30px 70px -15px rgba(0,0,0,0.45)}
-  .boite-auth .icone-auth{width:46px; height:46px; margin:0 auto 12px; border-radius:14px; background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:0 8px 20px rgba(37,99,235,0.35)}
-  .boite-auth h2{text-align:center; margin:0 0 4px; font-size:20px; color:#0f172a}
-  .boite-auth .sous-titre{text-align:center; color:#94a3b8; font-size:12.5px; margin-bottom:18px}
-  .btn-google{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1.5px solid #e2e8f0; border-radius:10px; background:white; font-weight:600; font-size:14px; color:#334155; cursor:pointer; transition:.15s; font-family:'Poppins',Arial}
-  .btn-google:hover{background:#f8fafc; border-color:#cbd5e1}
-  .separateur{display:flex; align-items:center; gap:10px; margin:18px 0 4px; color:#94a3b8; font-size:12px}
-  .separateur::before,.separateur::after{content:""; flex:1; height:1px; background:#e2e8f0}
-  .role-tag{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; background:rgba(255,255,255,0.25)}
-  .caisse-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #eee}
+  .boite-auth .icone-auth{width:48px; height:48px; margin:0 auto 12px; border-radius:14px; background:linear-gradient(135deg, var(--bleu), var(--bleu-clair)); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(22,35,74,0.35)}
+  .boite-auth h2{text-align:center; margin:0 0 4px; font-size:21px; color:var(--encre)}
+  .boite-auth .sous-titre{text-align:center; color:#9C9576; font-size:12.5px; margin-bottom:18px; font-family:'Inter',Arial}
+  .btn-google{width:100%; display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; border:1.5px solid var(--ligne); border-radius:10px; background:white; font-weight:600; font-size:14px; color:#3A3627; cursor:pointer; transition:.15s; font-family:'Inter',Arial}
+  .btn-google:hover{background:#FAF8F2; border-color:#D8CFB4}
+  .separateur{display:flex; align-items:center; gap:10px; margin:18px 0 4px; color:#B4AC90; font-size:12px}
+  .separateur::before,.separateur::after{content:""; flex:1; height:1px; background:var(--ligne)}
+  .role-tag{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; background:rgba(255,255,255,0.22)}
+  .caisse-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--ligne)}
   .caisse-row span{flex:1; font-weight:500}
   @media (max-height: 760px), (max-width: 480px) {
     .boite-auth{padding:22px 24px 20px; max-height:96vh}
-    .boite-auth .icone-auth{width:36px; height:36px; margin-bottom:8px; font-size:17px; border-radius:11px}
-    .boite-auth h2{font-size:17px}
+    .boite-auth .icone-auth{width:38px; height:38px; margin-bottom:8px; border-radius:11px}
+    .boite-auth h2{font-size:18px}
     .boite-auth .sous-titre{font-size:11.5px; margin-bottom:12px}
     .btn-google{padding:9px}
     .separateur{margin:12px 0 2px}
     .onglets{margin-bottom:10px}
     label{margin:7px 0 4px; font-size:11.5px}
-    input[type=text],input[type=email],input[type=password]{padding:10px 12px}
+    input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]){padding:10px 12px}
     #formInscription small{padding:8px 10px!important; font-size:11px!important}
   }
-  nav button{transition:filter .15s, transform .15s}
-  nav button:hover{filter:brightness(1.08); transform:translateY(-1px)}
 </style>
 </head>
 <body>
 
 <div id="ecranAuth">
   <div class="boite-auth">
-    <div class="icone-auth">⛪</div>
+    <div class="icone-auth">
+      <svg viewBox="0 0 48 48" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="20" stroke="white" stroke-width="1.4" opacity="0.9"/>
+        <circle cx="24" cy="24" r="15.5" stroke="white" stroke-width="1" stroke-dasharray="1.6 3.2" opacity="0.55"/>
+        <path d="M24 11v26M17 19h14" stroke="white" stroke-width="2.3" stroke-linecap="round"/>
+      </svg>
+    </div>
     <h2>Trésorerie Eglise</h2>
     <p class="sous-titre">Gestion des caisses, offrandes et cotisations</p>
     <button class="btn-google" onclick="connexionGoogle()">
@@ -167,9 +199,9 @@
       <input type="number" id="inpAnnee" placeholder="Ex: 2024" style="display:none; width:120px">
       <input type="date" id="dateDebut" style="display:none">
       <input type="date" id="dateFin" style="display:none">
-      <button onclick="afficher()" style="padding:8px 15px; background:var(--bleu-clair); color:white; border:none; border-radius:6px">APPLIQUER</button>
+      <button onclick="afficher()" class="btn-mini">APPLIQUER</button>
     </div>
-    <input id="rechercheMouvement" placeholder="Rechercher par nom, motif, utilisateur..." style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px" oninput="afficher()">
+    <input id="rechercheMouvement" placeholder="Rechercher par nom, motif, utilisateur..." style="margin-bottom:10px" oninput="afficher()">
     <small>Clique sur une caisse pour imprimer son état</small>
     <div class="grid" id="grilleCaisses" style="margin-top:15px"></div>
     <div class="section"><h3>Derniers Mouvements</h3><table><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th><th>Utilisateur</th><th>Reçu</th><th>Action</th></tr></thead><tbody id="tbodyMouvements"></tbody></table></div>
@@ -188,9 +220,9 @@
     <div class="filtre-box" style="margin-bottom:15px">
       <h2 style="color:var(--bleu); margin:0">Membres / Cotisants</h2>
       <div class="spacer"></div>
-      <button class="btn-vert" style="padding:10px 16px; border:none; border-radius:8px; color:white; cursor:pointer" onclick="ouvrirMembre()">+ NOUVEAU MEMBRE</button>
+      <button class="btn-mini" style="background:var(--vert)" onclick="ouvrirMembre()">+ NOUVEAU MEMBRE</button>
     </div>
-    <input id="rechercheMembre" placeholder="Rechercher un membre..." style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px" oninput="afficherMembres()">
+    <input id="rechercheMembre" placeholder="Rechercher un membre..." style="margin-bottom:10px" oninput="afficherMembres()">
     <div class="section"><table><thead><tr><th>Nom</th><th>Téléphone</th><th>Total versé</th><th>Statut</th><th>Action</th></tr></thead><tbody id="tbodyMembres"></tbody></table></div>
   </div>
 
@@ -207,7 +239,7 @@
       <div class="section" id="blocNouvelleSection"></div>
     </div>
     <div id="vueSectionDetail" class="hidden">
-      <button onclick="retourListeSections()" style="padding:8px 15px; background:var(--gris); border:none; border-radius:8px; cursor:pointer; margin-bottom:15px">← Retour aux sections</button>
+      <button onclick="retourListeSections()" class="btn-annuler" style="width:auto; margin-bottom:15px">← Retour aux sections</button>
       <h2 id="titreSectionDetail" style="color:var(--bleu); margin:0 0 15px"></h2>
       <div class="grid" style="margin-bottom:15px">
         <div class="card-pro"><h3>Solde de la section</h3><div class="montant" id="soldeSectionDetail">0 FCFA</div></div>
@@ -309,6 +341,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>

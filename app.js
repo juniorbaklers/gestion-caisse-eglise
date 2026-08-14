@@ -794,8 +794,20 @@ function renderListeUtilisateurs() {
 // ---------- Impression / PDF ----------
 
 function pageImpression(titre, periode, resumeHtml, tableHtml) {
-  const logo = params.logo_url ? `<img src="${params.logo_url}" style="height:80px">` : '';
-  return `<html><head><style>body{font-family:Poppins; padding:20px}.entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #1e3a8a} h1{margin:0} table{width:100%; border-collapse:collapse; margin-top:20px} th,td{border:1px solid #ccc; padding:8px; font-size:12px} th{background:#eee}.total{font-size:28px; font-weight:700; text-align:center; margin:20px 0; color:#1e3a8a; padding:20px; border:3px solid #1e3a8a; border-radius:10px; background:#eff6ff}.resume{display:flex; justify-content:space-around; margin:15px 0; font-size:16px}</style></head><body><div class="entete">${logo}<div><h1>${escapeHtml(params.nom)}</h1><p>${escapeHtml(params.ville)} - ${escapeHtml(params.quartier)}</p></div></div><h2 style="text-align:center">${escapeHtml(titre)}</h2><p><b>Période:</b> ${escapeHtml(periode)}</p>${resumeHtml}${tableHtml}</body></html>`;
+  const logo = params.logo_url ? `<img src="${params.logo_url}" style="height:70px">` : '';
+  const sceau = `<svg viewBox="0 0 48 48" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.35"><circle cx="24" cy="24" r="20" stroke="#16234A" stroke-width="1.4"/><circle cx="24" cy="24" r="15.5" stroke="#16234A" stroke-width="1" stroke-dasharray="1.6 3.2"/><path d="M24 11v26M17 19h14" stroke="#16234A" stroke-width="2.3" stroke-linecap="round"/></svg>`;
+  return `<html><head><meta charset="UTF-8"><style>
+    body{font-family:'Georgia',serif; padding:28px; color:#151B2C}
+    .entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #16234A; padding-bottom:14px}
+    .entete .spacer{flex:1}
+    h1{margin:0; font-size:22px} p{font-family:Arial,sans-serif; font-size:13px; color:#5B5540}
+    h2{font-size:17px; letter-spacing:.03em; text-transform:uppercase}
+    table{width:100%; border-collapse:collapse; margin-top:20px; font-family:Arial,sans-serif}
+    th,td{border-bottom:1px solid #E7E0CF; padding:9px 8px; font-size:12px; text-align:left}
+    th{background:#F6F2E8; text-transform:uppercase; font-size:10px; letter-spacing:.04em; color:#5B5540}
+    .total{font-size:26px; font-weight:700; text-align:center; margin:20px 0; color:#16234A; padding:18px; border:2px solid #16234A; border-radius:10px; background:#F6F2E8; font-family:'Georgia',serif}
+    .resume{display:flex; justify-content:space-around; margin:15px 0; font-size:15px; font-family:Arial,sans-serif}
+  </style></head><body><div class="entete">${logo}<div><h1>${escapeHtml(params.nom)}</h1><p>${escapeHtml(params.ville)} - ${escapeHtml(params.quartier)}</p></div><div class="spacer"></div>${sceau}</div><h2 style="text-align:center">${escapeHtml(titre)}</h2><p style="text-align:center"><b>Période:</b> ${escapeHtml(periode)}</p>${resumeHtml}${tableHtml}</body></html>`;
 }
 
 async function imprimerEtat(idOrGeneral) {
@@ -851,7 +863,7 @@ async function imprimerGraphique() {
   const periode = document.getElementById('filtrePeriode').selectedOptions[0].text;
   const solde = getSolde("Caisse Générale");
   const imgGraph = await genererGraphiqueImage();
-  const contenu = `<html><head><style>body{font-family:Poppins; padding:20px; text-align:center}.entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #1e3a8a; text-align:left} h1{margin:0}.total{font-size:28px; font-weight:700; margin:20px 0; color:#1e3a8a; padding:20px; border:3px solid #1e3a8a; border-radius:10px; background:#eff6ff; display:inline-block}</style></head><body><div class="entete">${logo}<div><h1>${escapeHtml(params.nom)}</h1><p>${escapeHtml(params.ville)} - ${escapeHtml(params.quartier)}</p></div></div><h2>GRAPHIQUE ANNUEL - CAISSE GENERALE</h2><p><b>Période:</b> ${escapeHtml(periode)}</p><p class="total">SOLDE ACTUEL: ${solde.toLocaleString()} FCFA</p><div><img src="${imgGraph}" style="width:100%; max-width:1000px"></div></body></html>`;
+  const contenu = `<html><head><meta charset="UTF-8"><style>body{font-family:'Georgia',serif; padding:24px; text-align:center; color:#151B2C}.entete{display:flex; align-items:center; gap:15px; border-bottom:2px solid #16234A; text-align:left; padding-bottom:14px} h1{margin:0; font-size:22px} p{font-family:Arial,sans-serif; font-size:13px; color:#5B5540}.total{font-size:26px; font-weight:700; margin:20px 0; color:#16234A; padding:18px; border:2px solid #16234A; border-radius:10px; background:#F6F2E8; display:inline-block}</style></head><body><div class="entete">${logo}<div><h1>${escapeHtml(params.nom)}</h1><p>${escapeHtml(params.ville)} - ${escapeHtml(params.quartier)}</p></div></div><h2>GRAPHIQUE ANNUEL - CAISSE GENERALE</h2><p><b>Période:</b> ${escapeHtml(periode)}</p><p class="total">SOLDE ACTUEL: ${solde.toLocaleString()} FCFA</p><div><img src="${imgGraph}" style="width:100%; max-width:1000px"></div></body></html>`;
   const w = window.open(''); w.document.write(contenu); w.document.close(); setTimeout(() => w.print(), 800);
 }
 
