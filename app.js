@@ -16,6 +16,7 @@ let sections = [];
 let sectionMembres = [];
 let cotisationTypes = [];
 let sectionCouranteId = null;
+let espaceCourant = null;
 let params = { nom: 'EGLISE', ville: '', quartier: '', logo_url: '' };
 let monGraphique = null;
 
@@ -58,6 +59,28 @@ function peutGererSection(sectionId) {
   if (!profil) return false;
   if (profil.role === 'tresorier_principal' || profil.role === 'tresorier_adjoint') return true;
   return profil.role === 'responsable_section' && profil.section_id === sectionId;
+}
+function idsCaissesDeSections() {
+  return new Set(sections.map(s => s.caisse_id));
+}
+function caissesDeLEspaceCourant() {
+  if (!espaceCourant || espaceCourant.type === 'eglise') {
+    const idsSections = idsCaissesDeSections();
+    return caissesActives().filter(c => !idsSections.has(c.id));
+  }
+  return caissesActives().filter(c => c.id === espaceCourant.caisseId);
+}
+function perimetreEspace() {
+  const ids = caissesDeLEspaceCourant().map(c => c.id);
+  if (!espaceCourant || espaceCourant.type === 'eglise') ids.push(null);
+  return ids;
+}
+function rafraichirVueCourante() {
+  if (espaceCourant && espaceCourant.type === 'section') {
+    afficherSectionDansAccueil(espaceCourant.sectionId);
+  } else {
+    afficher();
+  }
 }
 
 // ---------- Authentification ----------
@@ -183,7 +206,7 @@ function lancerModeDemo() {
   document.getElementById('utilisateurRole').textContent = 'Démo (aucune donnée réelle)';
   chargerHeader();
   attacherEcouteurs();
-  showPage('accueil');
+  retourChoixEspace();
 }
 
 async function connexionGoogle() {
@@ -216,7 +239,11 @@ async function demarrerApresConnexion(sess) {
     document.getElementById('utilisateurRole').textContent = libelleRole(profil.role);
     await chargerToutesLesDonnees();
     attacherEcouteurs();
-    showPage('accueil');
+    if (profil.role === 'responsable_section' && profil.section_id) {
+      entrerEspace('section:' + profil.section_id);
+    } else {
+      retourChoixEspace();
+    }
     activerRealtime();
   } catch (e) {
     console.error(e);
@@ -229,7 +256,7 @@ function activerRealtime() {
   supabase.channel('mouvements-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'mouvements' }, async () => {
       await chargerMouvements();
-      afficher();
+      rafraichirVueCourante();
       if (!document.getElementById('page-dashboard').classList.contains('hidden')) afficherDashboard();
     })
     .subscribe();
@@ -300,11 +327,16 @@ function chargerHeader() {
 function showPage(p) {
   document.querySelectorAll('.container > div').forEach(d => d.classList.add('hidden'));
   document.getElementById('page-' + p).classList.remove('hidden');
-  if (p === 'accueil') afficher();
+  if (p === 'choix-espace') afficherChoixEspace();
+  if (p === 'accueil') {
+    const enSection = espaceCourant && espaceCourant.type === 'section';
+    document.getElementById('vueEglise').classList.toggle('hidden', enSection);
+    document.getElementById('vueSectionEspace').classList.toggle('hidden', !enSection);
+    rafraichirVueCourante();
+  }
   if (p === 'dashboard') setTimeout(afficherDashboard, 100);
   if (p === 'membres') afficherMembres();
   if (p === 'cloture') afficherClotures();
-  if (p === 'sections') { retourListeSections(); afficherSections(); }
 }
 
 function toggleDates() {
@@ -358,7 +390,7 @@ function getSolde(nom) {
 
 function afficher() {
   let html = "";
-  caissesActives().forEach(c => {
+  caissesDeLEspaceCourant().forEach(c => {
     const separee = !c.incluse_caisse_generale;
     html += `<div class="card-pro ${separee ? 'card-ecodim' : ''}" data-caisse="${c.id}">
       <h3 ${separee ? 'style="color:white"' : ''}>${escapeHtml(c.nom)}</h3>
@@ -373,7 +405,8 @@ function afficher() {
   const peutSupprimer = profil && profil.role === 'tresorier_principal';
   const recherche = (document.getElementById('rechercheMouvement').value || '').toLowerCase();
 
-  let mv = filtrerParPeriode(mouvements);
+  const perimetre = perimetreEspace();
+  let mv = filtrerParPeriode(mouvements).filter(m => perimetre.includes(m.caisse_id));
   if (recherche) {
     mv = mv.filter(m =>
       nomDe(m).toLowerCase().includes(recherche) ||
@@ -435,7 +468,8 @@ function afficherDashboard() {
     <div class="card-pro" style="background:var(--rouge);color:white"><h3 style="color:white">TOTAL DEPENSES</h3><div class="montant" style="color:white">${tD.toLocaleString()}</div><small>CAISSE GENERALE</small></div>
     <div class="card-pro"><h3>SOLDE GLOBAL</h3><div class="montant">${(tR - tD).toLocaleString()}</div><small>CAISSE GENERALE</small></div>
   `;
-  caisses.filter(c => !c.incluse_caisse_generale).forEach(c => {
+  const idsSections = idsCaissesDeSections();
+  caisses.filter(c => !c.incluse_caisse_generale && !idsSections.has(c.id)).forEach(c => {
     html += `<div class="card-pro card-ecodim"><h3>SOLDE ${escapeHtml(c.nom.toUpperCase())}</h3><div class="montant" style="color:white">${getSolde(c.nom).toLocaleString()}</div><small>CAISSE SEPAREE</small></div>`;
   });
   document.getElementById('resumeCards').innerHTML = html;
@@ -484,12 +518,12 @@ function soldeADate(nom, dateLimite) {
 
 function anneesDisponiblesPourCloture() {
   const anneeCourante = new Date().getFullYear();
-  const anneesMouvements = new Set(mouvements.map(m => new Date(m.date).getFullYear()));
+  const cibles = perimetreEspace();
+  const anneesMouvements = new Set(mouvements.filter(m => cibles.includes(m.caisse_id)).map(m => new Date(m.date).getFullYear()));
   anneesMouvements.add(anneeCourante);
-  const toutesCaisses = [...caisses.map(c => c.id), null];
   return [...anneesMouvements].sort((a, b) => a - b).filter(a => {
     const clotureesPourCetteAnnee = clotures.filter(c => c.annee === a).map(c => c.caisse_id);
-    return !toutesCaisses.every(id => clotureesPourCetteAnnee.includes(id));
+    return !cibles.every(id => clotureesPourCetteAnnee.includes(id));
   });
 }
 
@@ -508,8 +542,9 @@ function afficherClotures() {
     bloc.innerHTML = `<h3>Clôturer un exercice</h3><p style="color:#64748b">Seul le trésorier principal peut clôturer un exercice.</p>`;
   }
 
+  const cibles = perimetreEspace();
   let html = "";
-  clotures.forEach(c => {
+  clotures.filter(c => cibles.includes(c.caisse_id)).forEach(c => {
     html += `<tr><td>${c.annee}</td><td>${escapeHtml(caisseNomParId(c.caisse_id))}</td><td>${Number(c.solde_cloture).toLocaleString()} FCFA</td><td>${new Date(c.date_cloture).toLocaleDateString('fr-FR')}</td><td>${escapeHtml(profilsMap[c.cloture_par] || '-')}</td></tr>`;
   });
   if (!html) html = '<tr><td colspan="5" style="text-align:center">Aucune clôture effectuée</td></tr>';
@@ -521,21 +556,22 @@ async function cloturerExercice() {
   if (!confirm(`Clôturer l'exercice ${annee} ? Les écritures de ${annee} et des années antérieures ne pourront plus être modifiées ni supprimées pour les caisses concernées. Cette action est irréversible.`)) return;
 
   const dateLimite = new Date(annee, 11, 31, 23, 59, 59);
-  const lignes = caisses.map(c => ({
-    annee, caisse_id: c.id, solde_cloture: soldeADate(c.nom, dateLimite), cloture_par: session.user.id
+  const cibles = perimetreEspace();
+  const lignes = cibles.map(caisseId => ({
+    annee, caisse_id: caisseId, solde_cloture: soldeADate(caisseNomParId(caisseId), dateLimite), cloture_par: session.user.id
   }));
-  lignes.push({ annee, caisse_id: null, solde_cloture: soldeADate("Caisse Générale", dateLimite), cloture_par: session.user.id });
 
   const { error } = await supabase.from('clotures').upsert(lignes, { onConflict: 'annee,caisse_id' });
   if (error) { alert("Erreur: " + error.message); return; }
   await chargerClotures();
   afficherClotures();
-  afficher();
+  rafraichirVueCourante();
   imprimerCertificatCloture(annee);
 }
 
 function imprimerCertificatCloture(annee) {
-  const lignesCloture = clotures.filter(c => c.annee === annee);
+  const cibles = perimetreEspace();
+  const lignesCloture = clotures.filter(c => c.annee === annee && cibles.includes(c.caisse_id));
   const lignes = lignesCloture.map(c => `<tr><td>${escapeHtml(caisseNomParId(c.caisse_id))}</td><td>${Number(c.solde_cloture).toLocaleString()} FCFA</td></tr>`).join('');
   const tableHtml = `<table><thead><tr><th>Caisse</th><th>Solde au 31/12/${annee}</th></tr></thead><tbody>${lignes}</tbody></table>`;
   const contenu = pageImpression("CERTIFICAT DE CLÔTURE D'EXERCICE " + annee, "Exercice " + annee, '', tableHtml);
@@ -551,26 +587,26 @@ function libelleFrequence(f) {
   return { mensuelle: 'Mensuelle', trimestrielle: 'Trimestrielle', annuelle: 'Annuelle', ponctuelle: 'Ponctuelle' }[f] || f;
 }
 
-function afficherSections() {
-  let html = "";
+function afficherChoixEspace() {
+  document.getElementById('navPrincipale').classList.add('hidden');
+  let html = `<div class="card-pro card-general" data-espace="eglise"><h3>🏛️ Église</h3><div class="montant">${getSolde("Caisse Générale").toLocaleString()} FCFA</div><small>Trésorerie générale</small></div>`;
   sections.filter(s => s.actif).forEach(s => {
-    const nbMembres = sectionMembres.filter(sm => sm.section_id === s.id).length;
     const caisse = caisses.find(c => c.id === s.caisse_id);
-    const solde = caisse ? getSolde(caisse.nom) : 0;
-    html += `<div class="card-pro card-ecodim" data-section="${s.id}">
+    const nbMembres = sectionMembres.filter(sm => sm.section_id === s.id).length;
+    html += `<div class="card-pro card-ecodim" data-espace="section:${s.id}">
       <h3 style="color:white">${escapeHtml(s.nom)}</h3>
-      <div class="montant" style="color:white">${solde.toLocaleString()} FCFA</div>
-      <small>${nbMembres} membre${nbMembres > 1 ? 's' : ''} — clique pour gérer</small>
+      <div class="montant" style="color:white">${(caisse ? getSolde(caisse.nom) : 0).toLocaleString()} FCFA</div>
+      <small>${nbMembres} membre${nbMembres > 1 ? 's' : ''}</small>
     </div>`;
   });
-  document.getElementById('grilleSections').innerHTML = html || '<p style="color:#64748b">Aucune section créée</p>';
+  document.getElementById('grilleChoixEspace').innerHTML = html;
 
   const bloc = document.getElementById('blocNouvelleSection');
   if (profil && profil.role === 'tresorier_principal') {
     bloc.innerHTML = `<h3>Nouvelle section</h3>
       <div style="display:flex; gap:8px">
-        <input id="nouvelleSection" placeholder="Ex: Jeunesse, Femmes, Chorale..." style="margin:0">
-        <button onclick="ajouterSection()" style="padding:0 16px; background:var(--vert); color:white; border:none; border-radius:8px; cursor:pointer">+</button>
+        <input id="nouvelleSection" placeholder="Ex: Jeunesse, Femmes, École du Dimanche...">
+        <button onclick="ajouterSection()" class="btn-mini" style="background:var(--vert)">+</button>
       </div>`;
   } else {
     bloc.innerHTML = '';
@@ -587,28 +623,88 @@ async function ajouterSection() {
   if (errSection) { alert("Erreur: " + errSection.message); return; }
   document.getElementById('nouvelleSection').value = '';
   await Promise.all([chargerCaisses(), chargerSections()]);
-  afficherSections();
-  afficher();
+  afficherChoixEspace();
 }
 
-function retourListeSections() {
-  sectionCouranteId = null;
-  document.getElementById('vueSectionsListe').classList.remove('hidden');
-  document.getElementById('vueSectionDetail').classList.add('hidden');
+function entrerEspace(cle) {
+  if (cle === 'eglise') {
+    espaceCourant = { type: 'eglise' };
+  } else if (cle.startsWith('section:')) {
+    const sectionId = cle.slice('section:'.length);
+    const s = sections.find(x => x.id === sectionId);
+    if (!s) return;
+    espaceCourant = { type: 'section', sectionId, caisseId: s.caisse_id };
+  } else {
+    return;
+  }
+  mettreAJourNavPourEspace();
+  showPage('accueil');
 }
 
-function ouvrirSection(id) {
-  sectionCouranteId = id;
-  const s = sections.find(x => x.id === id);
+function retourChoixEspace() {
+  espaceCourant = null;
+  mettreAJourNavPourEspace();
+  showPage('choix-espace');
+}
+
+function mettreAJourNavPourEspace() {
+  const nav = document.getElementById('navPrincipale');
+  const label = document.getElementById('nomEspaceCourant');
+  if (!espaceCourant) {
+    nav.classList.add('hidden');
+    return;
+  }
+  nav.classList.remove('hidden');
+  if (espaceCourant.type === 'eglise') {
+    label.textContent = '🏛️ Église';
+  } else {
+    const s = sections.find(x => x.id === espaceCourant.sectionId);
+    label.textContent = s ? s.nom : '';
+  }
+  document.querySelectorAll('#navPrincipale [data-nav]').forEach(el => {
+    const contextes = el.dataset.nav.split(',');
+    el.classList.toggle('hidden', !contextes.includes(espaceCourant.type));
+  });
+}
+
+function afficherSectionDansAccueil(sectionId) {
+  sectionCouranteId = sectionId;
+  const s = sections.find(x => x.id === sectionId);
   if (!s) return;
-  document.getElementById('vueSectionsListe').classList.add('hidden');
-  document.getElementById('vueSectionDetail').classList.remove('hidden');
-  document.getElementById('titreSectionDetail').textContent = s.nom;
+  document.getElementById('titreSectionEspace').textContent = s.nom;
   const caisse = caisses.find(c => c.id === s.caisse_id);
   document.getElementById('soldeSectionDetail').textContent = (caisse ? getSolde(caisse.nom) : 0).toLocaleString() + ' FCFA';
   afficherCotisationTypes();
   remplirSelectTypeCotisationSuivi();
   afficherMembresSection();
+  afficherMouvementsSection();
+}
+
+function afficherMouvementsSection() {
+  const s = sections.find(x => x.id === sectionCouranteId);
+  if (!s) return;
+  const peutEcrire = peutGererSection(sectionCouranteId);
+  const peutSupprimer = profil && profil.role === 'tresorier_principal';
+  const mv = mouvements.filter(m => m.caisse_id === s.caisse_id).slice(0, 150);
+  let tbody = mv.length === 0 ? '<tr><td colspan="7" style="text-align:center">Aucun mouvement</td></tr>' : '';
+  mv.forEach(m => {
+    const verrouille = estVerrouille(m);
+    tbody += `<tr>
+      <td>${escapeHtml(m.date)}</td>
+      <td><span class="badge ${m.type === 'entree' ? 'badge-entree' : 'badge-depense'}">${m.type === 'entree' ? 'Entrée' : 'Dépense'}</span></td>
+      <td>${escapeHtml(nomDe(m))}</td>
+      <td>${Number(m.montant).toLocaleString()}</td>
+      <td>${escapeHtml(m.motif || '')}</td>
+      <td>${m.numero_recu ? escapeHtml(m.numero_recu) : '-'}</td>
+      <td>
+        ${verrouille ? '<span class="badge" style="background:#e2e8f0;color:#64748b">🔒</span>' : ''}
+        ${peutEcrire && !verrouille ? `<button class="btn-action btn-orange" data-action="modifier" data-id="${m.id}">MODIF</button>` : ''}
+        ${peutSupprimer && !verrouille ? `<button class="btn-action btn-rouge" data-action="supprimer" data-id="${m.id}">SUPPR</button>` : ''}
+        ${m.type === 'entree' ? `<button class="btn-action btn-violet" data-action="recu" data-id="${m.id}">RECU</button>` : ''}
+      </td>
+    </tr>`;
+  });
+  document.getElementById('tbodyMouvementsSection').innerHTML = tbody;
 }
 
 function afficherCotisationTypes() {
@@ -755,7 +851,6 @@ async function ajouterMembreASection() {
   await chargerSectionMembres();
   afficherMembresSection();
   afficherSuiviCotisation();
-  afficherSections();
 }
 
 async function retirerMembreDeSection(membreId) {
@@ -765,7 +860,6 @@ async function retirerMembreDeSection(membreId) {
   await chargerSectionMembres();
   afficherMembresSection();
   afficherSuiviCotisation();
-  afficherSections();
 }
 
 // ---------- Gestion des utilisateurs (rôles) ----------
@@ -907,8 +1001,9 @@ function genererPDF(id) {
 }
 
 function exportExcel() {
+  const perimetre = perimetreEspace();
   const ws_data = [["Date", "Caisse", "Type", "Nom", "Montant", "Motif", "Utilisateur", "N° Reçu"]];
-  mouvements.forEach(m => {
+  mouvements.filter(m => perimetre.includes(m.caisse_id)).forEach(m => {
     ws_data.push([m.date, caisseNomDe(m), m.type === 'entree' ? 'Entrée' : 'Dépense', nomDe(m), Number(m.montant), m.motif || '', profilsMap[m.user_id] || '', m.numero_recu || '']);
   });
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -933,8 +1028,9 @@ function ouvrir(type, id = null) {
 
   const selCaisse = document.getElementById('selCaisse');
   selCaisse.innerHTML = "";
-  caissesActives().forEach(c => selCaisse.innerHTML += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`);
-  if (type === 'depense') selCaisse.innerHTML += `<option value="">Caisse Générale</option>`;
+  const caissesDispo = caissesDeLEspaceCourant();
+  caissesDispo.forEach(c => selCaisse.innerHTML += `<option value="${c.id}">${escapeHtml(c.nom)}</option>`);
+  if (type === 'depense' && (!espaceCourant || espaceCourant.type === 'eglise')) selCaisse.innerHTML += `<option value="">Caisse Générale</option>`;
 
   const selMembre = document.getElementById('selMembre');
   selMembre.innerHTML = `<option value="">-- Autre / non enregistré --</option>`;
@@ -952,6 +1048,7 @@ function ouvrir(type, id = null) {
     document.getElementById('periodeSaisie').value = item.periode || "";
   } else {
     document.getElementById('dateSaisie').value = new Date().toISOString().split('T')[0];
+    if (espaceCourant && espaceCourant.type === 'section') selCaisse.value = espaceCourant.caisseId;
     selMembre.value = "";
     document.getElementById('nomLibreSaisie').value = "";
     document.getElementById('montantSaisie').value = "";
@@ -1019,7 +1116,7 @@ async function enregistrer() {
 
     await chargerMouvements();
     fermer();
-    afficher();
+    rafraichirVueCourante();
     if (genererRecu) genererPDF(savedId);
   } catch (e) {
     err.textContent = "Erreur: " + e.message;
@@ -1031,7 +1128,7 @@ async function supprimer(id) {
   const { error } = await supabase.from('mouvements').delete().eq('id', id);
   if (error) { alert("Erreur: " + error.message); return; }
   await chargerMouvements();
-  afficher();
+  rafraichirVueCourante();
 }
 
 // ---------- Page Membres ----------
@@ -1138,7 +1235,7 @@ async function ajouterCaisse() {
   document.getElementById('nouvelleCaisse').value = '';
   await chargerCaisses();
   renderListeCaisses();
-  afficher();
+  rafraichirVueCourante();
 }
 
 async function sauverParam() {
@@ -1198,11 +1295,19 @@ function attacherEcouteurs() {
     if (el.dataset.action === 'toggle-caisse') await supabase.from('caisses').update({ actif: el.checked }).eq('id', id);
     else if (el.dataset.action === 'toggle-generale') await supabase.from('caisses').update({ incluse_caisse_generale: el.checked }).eq('id', id);
     await chargerCaisses();
-    afficher();
+    rafraichirVueCourante();
   });
-  document.getElementById('grilleSections').addEventListener('click', e => {
-    const card = e.target.closest('[data-section]');
-    if (card) ouvrirSection(card.dataset.section);
+  document.getElementById('grilleChoixEspace').addEventListener('click', e => {
+    const card = e.target.closest('[data-espace]');
+    if (card) entrerEspace(card.dataset.espace);
+  });
+  document.getElementById('tbodyMouvementsSection').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.action === 'modifier') modifier(id);
+    else if (btn.dataset.action === 'supprimer') supprimer(id);
+    else if (btn.dataset.action === 'recu') genererPDF(id);
   });
   document.getElementById('grilleSuiviCotisation').addEventListener('click', e => {
     const btn = e.target.closest('button[data-action="payer-cotisation"]');
@@ -1239,6 +1344,6 @@ Object.assign(window, {
   toggleDates, afficher, enregistrer, fermer,
   toggleNomLibre, ouvrirMembre, enregistrerMembre, fermerMembre, afficherMembres, ajouterCaisse,
   sauverParam, fermerParam, afficherDashboard, modifier, supprimer, genererPDF, imprimerEtatMembre,
-  cloturerExercice, ajouterSection, ouvrirSection, retourListeSections, ajouterTypeCotisation, onChangeTypeCotisationSuivi,
+  cloturerExercice, ajouterSection, entrerEspace, retourChoixEspace, ajouterTypeCotisation, onChangeTypeCotisationSuivi,
   afficherSuiviCotisation, ajouterMembreASection
 });

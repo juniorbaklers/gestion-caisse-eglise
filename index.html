@@ -170,45 +170,82 @@
   </div>
 </header>
 
-<nav>
+<nav id="navPrincipale" class="hidden">
+  <button onclick="retourChoixEspace()">🔀 ESPACES</button>
+  <span id="nomEspaceCourant" style="align-self:center; font-weight:600; color:#7A7358; font-size:13px; padding:0 4px; white-space:nowrap"></span>
+  <span class="nav-sep"></span>
   <button onclick="showPage('accueil')">🏠 ACCUEIL</button>
-  <button onclick="showPage('dashboard')">📊 DASHBOARD</button>
-  <button onclick="showPage('membres')">👥 MEMBRES</button>
+  <button onclick="showPage('dashboard')" data-nav="eglise">📊 DASHBOARD</button>
+  <button onclick="showPage('membres')" data-nav="eglise">👥 MEMBRES</button>
   <button onclick="showPage('cloture')">🔒 CLÔTURE</button>
-  <button onclick="showPage('sections')">🏛️ SECTIONS</button>
   <span class="nav-sep"></span>
   <button onclick="ouvrir('ajout')" class="btn-vert">+ AJOUTER</button>
   <button onclick="ouvrir('depense')" class="btn-rouge">- DEPENSE</button>
-  <span class="nav-sep"></span>
-  <button onclick="imprimerEtat('general')">🖨️ ETAT GENERAL</button>
-  <button onclick="imprimerGraphique()" class="btn-graph">📊 GRAPHIQUE</button>
-  <button onclick="exportPDFGeneral()" class="btn-pdf">📄 PDF GENERAL</button>
+  <span class="nav-sep" data-nav="eglise"></span>
+  <button onclick="imprimerEtat('general')" data-nav="eglise">🖨️ ETAT GENERAL</button>
+  <button onclick="imprimerGraphique()" class="btn-graph" data-nav="eglise">📊 GRAPHIQUE</button>
+  <button onclick="exportPDFGeneral()" class="btn-pdf" data-nav="eglise">📄 PDF GENERAL</button>
   <button onclick="exportExcel()">📥 EXCEL</button>
   <button onclick="ouvrirParam()" class="btn-violet">⚙️ PARAM</button>
 </nav>
 
 <div class="container">
-  <div id="page-accueil">
-    <div class="filtre-box" style="margin-bottom:15px">
-      <h2 style="color:var(--bleu); margin:0">Etat des Caisses</h2>
-      <select id="filtrePeriode" onchange="toggleDates()">
-        <option value="tout">Toutes périodes</option>
-        <option value="jour">Aujourd'hui</option>
-        <option value="semaine">Semaine</option>
-        <option value="mois">Mois</option>
-        <option value="annee">Année en cours</option>
-        <option value="annee_spec">Année spécifique</option>
-        <option value="perso">Période personnalisée</option>
-      </select>
-      <input type="number" id="inpAnnee" placeholder="Ex: 2024" style="display:none; width:120px">
-      <input type="date" id="dateDebut" style="display:none">
-      <input type="date" id="dateFin" style="display:none">
-      <button onclick="afficher()" class="btn-mini">APPLIQUER</button>
+  <div id="page-choix-espace">
+    <h2 style="color:var(--bleu); margin:0 0 6px">Choisir un espace</h2>
+    <p style="color:#7A7358; margin:0 0 20px">Sélectionne l'église ou une section pour accéder à sa gestion.</p>
+    <div class="grid" id="grilleChoixEspace" style="margin-bottom:20px"></div>
+    <div class="section" id="blocNouvelleSection"></div>
+  </div>
+
+  <div id="page-accueil" class="hidden">
+    <div id="vueEglise">
+      <div class="filtre-box" style="margin-bottom:15px">
+        <h2 style="color:var(--bleu); margin:0">Etat des Caisses</h2>
+        <select id="filtrePeriode" onchange="toggleDates()">
+          <option value="tout">Toutes périodes</option>
+          <option value="jour">Aujourd'hui</option>
+          <option value="semaine">Semaine</option>
+          <option value="mois">Mois</option>
+          <option value="annee">Année en cours</option>
+          <option value="annee_spec">Année spécifique</option>
+          <option value="perso">Période personnalisée</option>
+        </select>
+        <input type="number" id="inpAnnee" placeholder="Ex: 2024" style="display:none; width:120px">
+        <input type="date" id="dateDebut" style="display:none">
+        <input type="date" id="dateFin" style="display:none">
+        <button onclick="afficher()" class="btn-mini">APPLIQUER</button>
+      </div>
+      <input id="rechercheMouvement" placeholder="Rechercher par nom, motif, utilisateur..." style="margin-bottom:10px" oninput="afficher()">
+      <small>Clique sur une caisse pour imprimer son état</small>
+      <div class="grid" id="grilleCaisses" style="margin-top:15px"></div>
+      <div class="section"><h3>Derniers Mouvements</h3><table><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th><th>Utilisateur</th><th>Reçu</th><th>Action</th></tr></thead><tbody id="tbodyMouvements"></tbody></table></div>
     </div>
-    <input id="rechercheMouvement" placeholder="Rechercher par nom, motif, utilisateur..." style="margin-bottom:10px" oninput="afficher()">
-    <small>Clique sur une caisse pour imprimer son état</small>
-    <div class="grid" id="grilleCaisses" style="margin-top:15px"></div>
-    <div class="section"><h3>Derniers Mouvements</h3><table><thead><tr><th>Date</th><th>Caisse</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th><th>Utilisateur</th><th>Reçu</th><th>Action</th></tr></thead><tbody id="tbodyMouvements"></tbody></table></div>
+
+    <div id="vueSectionEspace" class="hidden">
+      <h2 id="titreSectionEspace" style="color:var(--bleu); margin:0 0 15px"></h2>
+      <div class="grid" style="margin-bottom:15px">
+        <div class="card-pro"><h3>Solde de la section</h3><div class="montant" id="soldeSectionDetail">0 FCFA</div></div>
+      </div>
+      <div class="section">
+        <h3>Types de cotisation</h3>
+        <div id="listeCotisationTypes"></div>
+        <div id="blocNouvelleCotisationType"></div>
+      </div>
+      <div class="section">
+        <h3>Suivi des paiements</h3>
+        <div class="filtre-box" style="margin-bottom:12px">
+          <select id="selTypeCotisationSuivi" onchange="onChangeTypeCotisationSuivi()"><option value="">-- Choisir un type de cotisation --</option></select>
+          <span id="periodeSuiviContainer"></span>
+        </div>
+        <table><thead><tr><th>Membre</th><th>Statut</th><th>Action</th></tr></thead><tbody id="grilleSuiviCotisation"></tbody></table>
+      </div>
+      <div class="section">
+        <h3>Membres de la section</h3>
+        <div id="listeMembresSection"></div>
+        <div id="blocAjoutMembreSection"></div>
+      </div>
+      <div class="section"><h3>Derniers Mouvements</h3><table><thead><tr><th>Date</th><th>Type</th><th>Nom</th><th>Montant</th><th>Motif</th><th>Reçu</th><th>Action</th></tr></thead><tbody id="tbodyMouvementsSection"></tbody></table></div>
+    </div>
   </div>
 
   <div id="page-dashboard" class="hidden">
@@ -236,38 +273,7 @@
     <div class="section"><h3>Historique des clôtures</h3><table><thead><tr><th>Année</th><th>Caisse</th><th>Solde clôturé</th><th>Date</th><th>Clôturé par</th></tr></thead><tbody id="tbodyClotures"></tbody></table></div>
   </div>
 
-  <div id="page-sections" class="hidden">
-    <div id="vueSectionsListe">
-      <h2 style="color:var(--bleu); margin:0 0 15px">Sections & Groupes</h2>
-      <div class="grid" id="grilleSections" style="margin-bottom:20px"></div>
-      <div class="section" id="blocNouvelleSection"></div>
-    </div>
-    <div id="vueSectionDetail" class="hidden">
-      <button onclick="retourListeSections()" class="btn-annuler" style="width:auto; margin-bottom:15px">← Retour aux sections</button>
-      <h2 id="titreSectionDetail" style="color:var(--bleu); margin:0 0 15px"></h2>
-      <div class="grid" style="margin-bottom:15px">
-        <div class="card-pro"><h3>Solde de la section</h3><div class="montant" id="soldeSectionDetail">0 FCFA</div></div>
-      </div>
-      <div class="section">
-        <h3>Types de cotisation</h3>
-        <div id="listeCotisationTypes"></div>
-        <div id="blocNouvelleCotisationType"></div>
-      </div>
-      <div class="section">
-        <h3>Suivi des paiements</h3>
-        <div class="filtre-box" style="margin-bottom:12px">
-          <select id="selTypeCotisationSuivi" onchange="onChangeTypeCotisationSuivi()"><option value="">-- Choisir un type de cotisation --</option></select>
-          <span id="periodeSuiviContainer"></span>
-        </div>
-        <table><thead><tr><th>Membre</th><th>Statut</th><th>Action</th></tr></thead><tbody id="grilleSuiviCotisation"></tbody></table>
-      </div>
-      <div class="section">
-        <h3>Membres de la section</h3>
-        <div id="listeMembresSection"></div>
-        <div id="blocAjoutMembreSection"></div>
-      </div>
-    </div>
-  </div>
+
 </div>
 
 </div>
@@ -345,6 +351,6 @@
   </div>
 </div>
 
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>
